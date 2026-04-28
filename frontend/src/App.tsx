@@ -29,16 +29,16 @@ export function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f3f6fb] lg:flex">
+    <div className="min-h-screen bg-transparent lg:flex">
       <Sidebar
         isOpen={isSidebarOpen}
         isCollapsed={isSidebarCollapsed}
         onClose={() => setIsSidebarOpen(false)}
         onToggleCollapse={() => setIsSidebarCollapsed((current) => !current)}
       />
-      <div className={`min-w-0 flex-1 transition-all duration-300 ${isSidebarCollapsed ? 'lg:ml-0' : 'lg:ml-0'}`}>
+      <div className="min-w-0 flex-1">
         <Topbar onToggleSidebar={() => setIsSidebarOpen((current) => !current)} />
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
+        <main className="scrollbar-light px-4 py-6 sm:px-6 lg:h-[calc(100vh-84px)] lg:overflow-y-auto lg:px-8">
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/agents" element={<AgentsPage />} />
