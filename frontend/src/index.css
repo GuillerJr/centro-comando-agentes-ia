@@ -1,27 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: light;
-  font-family: Inter, system-ui, sans-serif;
-  background: #f4f7fb;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  background: #edf3f9;
   color: #0f172a;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 26%),
+    radial-gradient(circle at top right, rgba(45, 212, 191, 0.12), transparent 20%),
+    linear-gradient(180deg, #edf3f9 0%, #f5f9fd 54%, #f7fbff 100%);
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 24%),
-    radial-gradient(circle at top right, rgba(16, 185, 129, 0.09), transparent 18%),
-    linear-gradient(180deg, #f3f7fb 0%, #f8fbff 100%);
+  background: transparent;
   color: #0f172a;
+}
+
+#root {
+  min-height: 100vh;
 }
 
 * {
   box-sizing: border-box;
+}
+
+*::selection {
+  background: rgba(56, 189, 248, 0.18);
 }
 
 a {
@@ -36,18 +51,71 @@ textarea {
   font: inherit;
 }
 
+button,
+input,
+select,
+textarea,
+[role='button'] {
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+}
+
 .panel-input {
-  @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100;
+  @apply w-full rounded-[22px] border border-slate-200/90 bg-white/95 px-4 py-3 text-sm text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.04)] outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100;
 }
 
 .panel-card {
-  @apply rounded-[26px] border border-slate-200/80 bg-white shadow-[0_14px_30px_rgba(15,23,42,0.05)];
+  @apply rounded-[30px] border border-white/80 bg-white/92 shadow-[0_24px_50px_rgba(15,23,42,0.06)];
+}
+
+.panel-card-hover {
+  @apply transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_28px_56px_rgba(15,23,42,0.09)];
 }
 
 .surface-muted {
-  @apply rounded-[22px] border border-slate-100 bg-slate-50;
+  @apply rounded-[24px] border border-slate-100 bg-slate-50/90;
 }
 
 .page-grid {
   @apply grid gap-6;
+}
+
+.scrollbar-light {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+}
+
+.scrollbar-light::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.scrollbar-light::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-light::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.8), rgba(100, 116, 139, 0.85));
+  background-clip: padding-box;
+}
+
+.scrollbar-dark {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+.scrollbar-dark::-webkit-scrollbar {
+  width: 10px;
+}
+
+.scrollbar-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(148, 163, 184, 0.42), rgba(71, 85, 105, 0.75));
+  background-clip: padding-box;
 }
