@@ -1,0 +1,9 @@
+export type AgentStatus = 'active' | 'inactive' | 'error' | 'maintenance';
+export type SkillStatus = 'active' | 'inactive' | 'deprecated';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
+export type TaskType = 'frontend' | 'backend' | 'database' | 'mcp' | 'fullstack' | 'infrastructure' | 'documentation';
+export type TaskStatus = 'draft' | 'pending' | 'running' | 'awaiting_approval' | 'completed' | 'failed' | 'cancelled';
+export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'executed';
+export type Severity = 'info' | 'warning' | 'error' | 'critical';
+export type OpenClawMode = 'mock' | 'api' | 'cli';
