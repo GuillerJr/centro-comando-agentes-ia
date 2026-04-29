@@ -1,18 +1,33 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { CommandConsole, DataTable, EmptyState, ErrorState, formatDisplayText, LoadingState, MetricPill, PageShell, SectionCard, StatsGrid } from '../components/ui';
+import { Button } from '../components/button';
+import { ChipGroup, CommandConsole, ConsoleEmptyGuide, DataTable, EmptyState, ErrorState, formatDateTime, formatDisplayText, LoadingState, MetricPill, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { ConsoleSnapshot } from '../types/domain';
 
 export function CommandConsolePage() {
   const [snapshot, setSnapshot] = useState<ConsoleSnapshot | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadSnapshot = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      setSnapshot(await commandCenterApi.getConsoleSnapshot());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo cargar la consola operativa.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    commandCenterApi.getConsoleSnapshot().then(setSnapshot).catch((reason) => setError(reason instanceof Error ? reason.message : 'No se pudo cargar la consola operativa.'));
+    void loadSnapshot();
   }, []);
 
-  if (error) return <ErrorState message={error} />;
-  if (!snapshot) return <LoadingState label="Cargando consola de mando..." />;
+  if (error) return <ErrorState message={error} action={<Button onClick={() => void loadSnapshot()}>Reintentar</Button>} />;
+  if (isLoading) return <LoadingState label="Cargando consola operativa..." />;
+  if (!snapshot) return <EmptyState title="Sin captura de consola" description="No se recibió un snapshot utilizable desde la capa operativa." action={<Button onClick={() => void loadSnapshot()}>Actualizar</Button>} />;
 
   return (
     <PageShell title="Consola operativa" description="Superficie controlada para observar el runtime, la lista permitida y las señales operativas recientes." action={<MetricPill label="Modo" value={snapshot.mode} tone="info" />}>
@@ -28,17 +43,49 @@ export function CommandConsolePage() {
       <div className="grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
         <SectionCard title="Comandos permitidos" subtitle="Comandos explícitamente permitidos por la capa adaptadora.">
           <CommandConsole>
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-              {snapshot.commandWhitelist.map((command) => (
-                <div key={command} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4 text-sm font-medium text-zinc-200 break-all sm:break-normal">
-                  {formatDisplayText(command)}
-                </div>
-              ))}
-            </div>
+            {snapshot.commandWhitelist.length === 0 ? (
+              <EmptyState title="Sin comandos permitidos" description="La capa adaptadora no publicó una lista permitida en este momento." />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                {snapshot.commandWhitelist.map((command) => (
+                  <div key={command} className="break-all rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4 text-sm font-medium text-zinc-200 sm:break-normal">
+                    {formatDisplayText(command)}
+                  </div>
+                ))}
+              </div>
+            )}
           </CommandConsole>
         </SectionCard>
 
-        <EmptyState title="Consola de observación" description="Este módulo prioriza seguridad: muestra contexto operativo, pero no permite lanzar comandos arbitrarios desde la interfaz." />
+        <ConsoleEmptyGuide />
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
+        <SectionCard title="Agentes visibles" subtitle="Inventario expuesto por el snapshot de consola actual.">
+          {snapshot.availableAgents.length === 0 ? (
+            <EmptyState title="Sin agentes visibles" description="La captura actual no devolvió agentes disponibles." />
+          ) : (
+            <DataTable
+              columns={['Agente', 'Tipo', 'Estado']}
+              rows={snapshot.availableAgents.map((agent) => [agent.name, formatDisplayText(agent.type), <StatusBadge status={agent.status} />])}
+            />
+          )}
+        </SectionCard>
+
+        <SectionCard title="Capacidades visibles" subtitle="Capacidades que el snapshot de consola declara como disponibles.">
+          {snapshot.availableSkills.length === 0 ? (
+            <EmptyState title="Sin capacidades visibles" description="No se publicaron capacidades disponibles en esta captura." />
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {snapshot.availableSkills.map((skill) => (
+                <div key={skill.canonicalName} className="surface-muted p-4">
+                  <p className="text-sm font-semibold text-white">{skill.canonicalName}</p>
+                  <div className="mt-3"><ChipGroup items={[skill.type]} /></div>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
       </div>
 
       <SectionCard title="Registros recientes" subtitle="Eventos recientes expuestos por el estado actual.">
@@ -47,7 +94,7 @@ export function CommandConsolePage() {
         ) : (
           <DataTable
             columns={['Nivel', 'Fecha', 'Mensaje']}
-            rows={snapshot.logs.map((log, index) => [formatDisplayText(log.level), log.timestamp, <div key={`${log.timestamp}-${index}`} className="max-w-3xl text-sm leading-6 text-zinc-400">{log.message}</div>])}
+            rows={snapshot.logs.map((log, index) => [formatDisplayText(log.level), formatDateTime(log.timestamp), <div key={`${log.timestamp}-${index}`} className="max-w-3xl text-sm leading-6 text-zinc-400">{log.message}</div>])}
           />
         )}
       </SectionCard>

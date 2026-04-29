@@ -1,18 +1,34 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { Button } from '../components/button';
+import { DataTable, DetailList, EmptyState, ErrorState, formatDateTime, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { AuditLog } from '../types/domain';
 
 export function AuditPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadLogs = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      setLogs(await commandCenterApi.getAuditLogs());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo cargar la auditoría.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    commandCenterApi.getAuditLogs().then(setLogs).catch((reason) => setError(reason instanceof Error ? reason.message : 'No se pudo cargar la auditoría.'));
+    void loadLogs();
   }, []);
 
-  if (error) return <ErrorState message={error} />;
-  if (!logs) return <LoadingState label="Cargando auditoría..." />;
+  if (error) return <ErrorState message={error} action={<Button onClick={() => void loadLogs()}>Reintentar</Button>} />;
+  if (isLoading) return <LoadingState label="Cargando auditoría..." />;
+
+  const topIssue = logs.find((log) => log.severity === 'critical' || log.severity === 'error') ?? logs[0];
 
   return (
     <PageShell title="Auditoría" description="Registro estructurado de acciones, módulos impactados, resultado y severidad para seguimiento operativo y forense.">
@@ -35,16 +51,13 @@ export function AuditPage() {
               <div className="text-sm text-zinc-300">{log.module_name}</div>,
               <div className="text-sm text-zinc-300">{formatDisplayText(log.result_status)}</div>,
               <StatusBadge status={log.severity} />,
-              <div className="text-sm text-zinc-400">{new Date(log.created_at).toLocaleString()}</div>,
+              <div className="text-sm text-zinc-400">{formatDateTime(log.created_at)}</div>,
             ])}
           />
         </SectionCard>
 
         <SectionCard title="Lectura rápida" subtitle="Puntos de interpretación para separar ruido de eventos relevantes.">
-          <div className="space-y-3">
-            <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">Cruza actor, módulo y resultado para detectar patrones repetidos antes de escalar un incidente.</div>
-            <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">Las severidades altas concentran primero la atención; los eventos informativos ayudan a reconstruir secuencia.</div>
-          </div>
+          {topIssue ? <DetailList items={[{ label: 'Evento a revisar', value: topIssue.action }, { label: 'Módulo', value: topIssue.module_name }, { label: 'Actor', value: topIssue.actor }, { label: 'Severidad', value: <StatusBadge status={topIssue.severity} /> }, { label: 'Fecha', value: formatDateTime(topIssue.created_at) }]} /> : <EmptyState title="Sin eventos destacados" description="Todavía no hay registros para construir una lectura rápida de auditoría." />}
         </SectionCard>
       </div>
     </PageShell>

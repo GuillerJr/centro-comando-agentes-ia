@@ -4,22 +4,31 @@ import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { Modal } from '../components/modal';
 import { CreateButton, IconEditButton } from '../components/table-actions';
-import { DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { ActionFeedback, DataTable, ErrorState, FormField, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { Skill } from '../types/domain';
 import { skillFormSchema } from '../utils/validation';
 
 export function SkillsPage() {
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [form, setForm] = useState({ canonicalName: '', description: '', skillType: 'operations', whenToUse: '', whenNotToUse: '' });
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadSkills = async () => {
     try {
+      setIsLoading(true);
+      setLoadError(null);
       setSkills(await commandCenterApi.getSkills());
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No se pudieron cargar las capacidades.');
+      setLoadError(reason instanceof Error ? reason.message : 'No se pudieron cargar las capacidades.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -27,34 +36,69 @@ export function SkillsPage() {
 
   const resetForm = () => {
     setForm({ canonicalName: '', description: '', skillType: 'operations', whenToUse: '', whenNotToUse: '' });
+    setEditingSkill(null);
     setEditingSkillId(null);
     setIsModalOpen(false);
+    setActionError(null);
   };
 
   const openCreate = () => {
+    setFeedback(null);
+    setActionError(null);
+    setEditingSkill(null);
     setEditingSkillId(null);
     setForm({ canonicalName: '', description: '', skillType: 'operations', whenToUse: '', whenNotToUse: '' });
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const parsed = skillFormSchema.safeParse(form);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Formulario inválido.');
+  const handleModalChange = (open: boolean) => {
+    if (!open) {
+      resetForm();
       return;
     }
-    const payload = { ...parsed.data, conversationalAlias: null, status: 'active', relatedSkills: [], qualityChecklist: [], metadata: {} };
-    if (editingSkillId) {
-      await commandCenterApi.updateSkill(editingSkillId, payload);
-    } else {
-      await commandCenterApi.createSkill(payload);
+
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setFeedback(null);
+    const parsed = skillFormSchema.safeParse(form);
+    if (!parsed.success) {
+      setActionError(parsed.error.issues[0]?.message ?? 'Formulario inválido.');
+      return;
     }
-    resetForm();
-    await loadSkills();
+    const payload = {
+      ...parsed.data,
+      conversationalAlias: editingSkill?.conversational_alias ?? null,
+      status: editingSkill?.status ?? 'active',
+      relatedSkills: editingSkill?.related_skills ?? [],
+      qualityChecklist: editingSkill?.quality_checklist ?? [],
+      metadata: editingSkill?.metadata ?? {},
+    };
+    try {
+      setIsSubmitting(true);
+      setActionError(null);
+      if (editingSkillId) {
+        await commandCenterApi.updateSkill(editingSkillId, payload);
+        setFeedback('La capacidad se actualizó correctamente.');
+      } else {
+        await commandCenterApi.createSkill(payload);
+        setFeedback('La capacidad se creó correctamente.');
+      }
+      resetForm();
+      await loadSkills();
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : 'No se pudo guardar la capacidad.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const startEdit = (skill: Skill) => {
+    setFeedback(null);
+    setActionError(null);
+    setEditingSkill(skill);
     setEditingSkillId(skill.id);
     setForm({
       canonicalName: skill.canonical_name,
@@ -66,11 +110,13 @@ export function SkillsPage() {
     setIsModalOpen(true);
   };
 
-  if (error) return <ErrorState message={error} />;
-  if (!skills) return <LoadingState label="Cargando capacidades..." />;
+  if (loadError) return <ErrorState message={loadError} action={<Button onClick={() => void loadSkills()}>Reintentar</Button>} />;
+  if (isLoading) return <LoadingState label="Cargando capacidades..." />;
 
   return (
     <PageShell title="Capacidades" description="Registro canónico de capacidades, límites y criterio de uso dentro del sistema multi-agente.">
+      {!isModalOpen && actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
+      {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
       <StatsGrid
         className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
         items={[
@@ -79,6 +125,14 @@ export function SkillsPage() {
           { eyebrow: 'Cobertura', title: `${new Set(skills.map((skill) => skill.skill_type)).size} dominios`, description: 'Áreas funcionales cubiertas por el catálogo disponible.', tone: 'default' },
         ]}
       />
+
+      <SectionCard title="Lectura del catálogo" subtitle="Ayuda a verificar si el inventario de capacidades está balanceado antes de asignarlas a tareas o agentes.">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Activas</p><p className="mt-3 text-2xl font-semibold text-white">{skills.filter((skill) => skill.status === 'active').length}</p><p className="mt-2 text-sm text-zinc-400">Capacidades listas para uso inmediato.</p></div>
+          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Sin alias</p><p className="mt-3 text-2xl font-semibold text-white">{skills.filter((skill) => !skill.conversational_alias).length}</p><p className="mt-2 text-sm text-zinc-400">Entradas pendientes de sinónimo conversacional.</p></div>
+          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Promedio de checklist</p><p className="mt-3 text-2xl font-semibold text-white">{skills.length > 0 ? Math.round(skills.reduce((total, skill) => total + skill.quality_checklist.length, 0) / skills.length) : 0}</p><p className="mt-2 text-sm text-zinc-400">Punto de partida para elevar calidad y gobernanza.</p></div>
+        </div>
+      </SectionCard>
 
       <SectionCard title="Registro de capacidades" subtitle="Gestión centralizada mediante tabla y modales." action={<CreateButton label="Crear capacidad" onClick={openCreate} />}>
         <DataTable
@@ -93,11 +147,12 @@ export function SkillsPage() {
         />
       </SectionCard>
 
-      <Modal open={isModalOpen} onOpenChange={setIsModalOpen} title={editingSkillId ? 'Editar capacidad' : 'Crear capacidad'} description="Formulario compacto para alta o edición del catálogo.">
+      <Modal open={isModalOpen} onOpenChange={handleModalChange} title={editingSkillId ? 'Editar capacidad' : 'Crear capacidad'} description="Formulario compacto para alta o edición del catálogo.">
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <Input placeholder="Nombre canónico" value={form.canonicalName} onChange={(event) => setForm((current) => ({ ...current, canonicalName: event.target.value }))} />
-          <textarea className="panel-input min-h-[96px]" placeholder="Descripción" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
-          <select className="panel-input" value={form.skillType} onChange={(event) => setForm((current) => ({ ...current, skillType: event.target.value }))}>
+          {actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
+          <FormField label="Nombre canónico" helper="Nombre principal usado por el catálogo."><Input placeholder="Nombre canónico" value={form.canonicalName} onChange={(event) => setForm((current) => ({ ...current, canonicalName: event.target.value }))} /></FormField>
+          <FormField label="Descripción"><textarea className="panel-input min-h-[96px]" placeholder="Descripción" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></FormField>
+          <FormField label="Tipo"><select className="panel-input" value={form.skillType} onChange={(event) => setForm((current) => ({ ...current, skillType: event.target.value }))}>
             <option value="governance">gobernanza</option>
             <option value="architecture">arquitectura</option>
             <option value="frontend">frontend</option>
@@ -107,11 +162,11 @@ export function SkillsPage() {
             <option value="ui">interfaz</option>
             <option value="fullstack">full stack</option>
             <option value="operations">operaciones</option>
-          </select>
-          <textarea className="panel-input min-h-[92px]" placeholder="Cuándo usar" value={form.whenToUse} onChange={(event) => setForm((current) => ({ ...current, whenToUse: event.target.value }))} />
-          <textarea className="panel-input min-h-[92px]" placeholder="Cuándo no usar" value={form.whenNotToUse} onChange={(event) => setForm((current) => ({ ...current, whenNotToUse: event.target.value }))} />
+          </select></FormField>
+          <FormField label="Cuándo usar"><textarea className="panel-input min-h-[92px]" placeholder="Cuándo usar" value={form.whenToUse} onChange={(event) => setForm((current) => ({ ...current, whenToUse: event.target.value }))} /></FormField>
+          <FormField label="Cuándo no usar"><textarea className="panel-input min-h-[92px]" placeholder="Cuándo no usar" value={form.whenNotToUse} onChange={(event) => setForm((current) => ({ ...current, whenNotToUse: event.target.value }))} /></FormField>
           <div className="flex flex-wrap gap-3">
-            <Button type="submit">{editingSkillId ? 'Guardar cambios' : 'Crear capacidad'}</Button>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : editingSkillId ? 'Guardar cambios' : 'Crear capacidad'}</Button>
             <Button type="button" variant="secondary" onClick={resetForm}>Cancelar</Button>
           </div>
         </form>

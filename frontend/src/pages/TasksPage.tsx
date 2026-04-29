@@ -4,23 +4,32 @@ import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { Modal } from '../components/modal';
-import { CreateButton, IconEditButton } from '../components/table-actions';
-import { ConfirmDialog, DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { CreateButton, IconCancelButton, IconEditButton } from '../components/table-actions';
+import { ActionFeedback, ConfirmDialog, DataTable, ErrorState, FormField, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { Task } from '../types/domain';
 import { taskFormSchema } from '../utils/validation';
 
 export function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', description: '', priority: 'medium', taskType: 'fullstack', requestedAction: '' });
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadTasks = async () => {
     try {
+      setIsLoading(true);
+      setLoadError(null);
       setTasks(await commandCenterApi.getTasks());
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No se pudieron cargar las tareas.');
+      setLoadError(reason instanceof Error ? reason.message : 'No se pudieron cargar las tareas.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -28,55 +37,106 @@ export function TasksPage() {
 
   const resetForm = () => {
     setForm({ title: '', description: '', priority: 'medium', taskType: 'fullstack', requestedAction: '' });
+    setEditingTask(null);
     setEditingTaskId(null);
     setIsModalOpen(false);
+    setActionError(null);
   };
 
   const openCreate = () => {
+    setFeedback(null);
+    setActionError(null);
+    setEditingTask(null);
     setEditingTaskId(null);
     setForm({ title: '', description: '', priority: 'medium', taskType: 'fullstack', requestedAction: '' });
     setIsModalOpen(true);
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const parsed = taskFormSchema.safeParse(form);
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Formulario inválido.');
+  const handleModalChange = (open: boolean) => {
+    if (!open) {
+      resetForm();
       return;
     }
-    if (editingTaskId) {
-      await commandCenterApi.updateTask(editingTaskId, { title: parsed.data.title, description: parsed.data.description, priority: parsed.data.priority, taskType: parsed.data.taskType, leadSkillId: null, supportSkillIds: [], status: 'pending', resultSummary: null, logs: null, createdBy: 'Guiller', metadata: { requestedAction: parsed.data.requestedAction }, startedAt: null, completedAt: null });
-    } else {
-      const createdTask = await commandCenterApi.createTask({ title: parsed.data.title, description: parsed.data.description, priority: parsed.data.priority, taskType: parsed.data.taskType, leadSkillId: null, supportSkillIds: [], status: 'pending', resultSummary: null, logs: null, createdBy: 'Guiller', metadata: { requestedAction: parsed.data.requestedAction } });
-      await commandCenterApi.runTask(createdTask.id, { requestedAction: parsed.data.requestedAction, skillIds: [], executionMode: 'mock' });
+
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setFeedback(null);
+    const parsed = taskFormSchema.safeParse(form);
+    if (!parsed.success) {
+      setActionError(parsed.error.issues[0]?.message ?? 'Formulario inválido.');
+      return;
     }
-    resetForm();
-    await loadTasks();
+    try {
+      setIsSubmitting(true);
+      setActionError(null);
+      if (editingTaskId) {
+        await commandCenterApi.updateTask(editingTaskId, {
+          title: parsed.data.title,
+          description: parsed.data.description,
+          priority: parsed.data.priority,
+          taskType: parsed.data.taskType,
+          leadSkillId: editingTask?.lead_skill_id ?? null,
+          supportSkillIds: editingTask?.support_skill_ids ?? [],
+          status: editingTask?.status ?? 'pending',
+          resultSummary: editingTask?.result_summary ?? null,
+          logs: editingTask?.logs ?? null,
+          createdBy: editingTask?.created_by ?? 'operator',
+          metadata: { ...(editingTask?.metadata ?? {}), requestedAction: parsed.data.requestedAction },
+          startedAt: editingTask?.started_at ?? null,
+          completedAt: editingTask?.completed_at ?? null,
+        });
+        setFeedback('La tarea se actualizó sin perder su contexto operativo.');
+      } else {
+        const createdTask = await commandCenterApi.createTask({ title: parsed.data.title, description: parsed.data.description, priority: parsed.data.priority, taskType: parsed.data.taskType, leadSkillId: null, supportSkillIds: [], status: 'pending', resultSummary: null, logs: null, createdBy: 'Guiller', metadata: { requestedAction: parsed.data.requestedAction } });
+        await commandCenterApi.runTask(createdTask.id, { requestedAction: parsed.data.requestedAction, skillIds: [], executionMode: 'mock' });
+        setFeedback('La tarea se creó y se envió a ejecución.');
+      }
+      resetForm();
+      await loadTasks();
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : 'No se pudo guardar la tarea.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const startEdit = (task: Task) => {
+    setFeedback(null);
+    setActionError(null);
+    setEditingTask(task);
     setEditingTaskId(task.id);
     setForm({
       title: task.title,
       description: task.description,
       priority: task.priority,
       taskType: task.task_type,
-      requestedAction: String((task as unknown as { metadata?: { requestedAction?: string } }).metadata?.requestedAction ?? ''),
+      requestedAction: String(task.metadata?.requestedAction ?? ''),
     });
     setIsModalOpen(true);
   };
 
   const cancelTask = async (taskId: string) => {
-    await commandCenterApi.cancelTask(taskId);
-    await loadTasks();
+    try {
+      setActionError(null);
+      setFeedback(null);
+      await commandCenterApi.cancelTask(taskId);
+      setFeedback('La tarea se canceló correctamente.');
+      await loadTasks();
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : 'No se pudo cancelar la tarea.');
+    }
   };
 
-  if (error) return <ErrorState message={error} />;
-  if (!tasks) return <LoadingState label="Cargando tareas..." />;
+  if (loadError) return <ErrorState message={loadError} action={<Button onClick={() => void loadTasks()}>Reintentar</Button>} />;
+  if (isLoading) return <LoadingState label="Cargando tareas..." />;
 
   return (
     <PageShell title="Tareas" description="Planeación, ejecución y seguimiento de trabajo operativo sobre OpenClaw y la capa de gobierno superior." action={<ConfirmDialog title="Control de seguridad" description="Acciones sensibles deben pasar por aprobaciones antes de ejecutarse." />}>
+      {!isModalOpen && actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
+      {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
       <StatsGrid
         className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"
         items={[
@@ -87,44 +147,53 @@ export function TasksPage() {
         ]}
       />
 
+      <SectionCard title="Lectura de la cola" subtitle="Bloque adicional para distinguir presión actual, aprobaciones y volumen cancelado antes de abrir más frentes.">
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Esperando aprobación</p><p className="mt-3 text-2xl font-semibold text-white">{tasks.filter((task) => task.status === 'awaiting_approval').length}</p><p className="mt-2 text-sm text-zinc-400">Tareas detenidas por control humano previo.</p></div>
+          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Canceladas</p><p className="mt-3 text-2xl font-semibold text-white">{tasks.filter((task) => task.status === 'cancelled').length}</p><p className="mt-2 text-sm text-zinc-400">Trabajo descartado o detenido de forma explícita.</p></div>
+          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Carga alta</p><p className="mt-3 text-2xl font-semibold text-white">{tasks.filter((task) => task.priority === 'high' || task.priority === 'critical').length}</p><p className="mt-2 text-sm text-zinc-400">Tareas que conviene atender primero.</p></div>
+        </div>
+      </SectionCard>
+
       <SectionCard title="Cola de tareas" subtitle="Gestión centralizada con tabla, acciones compactas y modales." action={<CreateButton label="Crear tarea" onClick={openCreate} />}>
         <DataTable
           columns={['Título', 'Prioridad', 'Tipo', 'Estado', 'Detalle', 'Acciones']}
           rows={tasks.map((task) => [
-            <div className="max-w-xs text-sm font-semibold text-white">{task.title}</div>,
+            <div className="max-w-xs"><p className="text-sm font-semibold text-white">{task.title}</p><p className="mt-1 text-xs text-zinc-500">{task.result_summary ?? 'Sin resumen todavía'}</p></div>,
             <span className="text-sm text-zinc-300">{formatDisplayText(task.priority)}</span>,
             <span className="text-sm text-zinc-300">{formatDisplayText(task.task_type)}</span>,
             <StatusBadge status={task.status} />,
             <Link className="text-blue-300 hover:text-blue-200" to={`/tasks/${task.id}`}>Ver detalle</Link>,
-            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(task)} /><Button size="icon" variant="danger" onClick={() => void cancelTask(task.id)} title="Cancelar">✕</Button></div>,
+            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(task)} />{task.status !== 'cancelled' ? <IconCancelButton onClick={() => void cancelTask(task.id)} /> : null}</div>,
           ])}
         />
       </SectionCard>
 
-      <Modal open={isModalOpen} onOpenChange={setIsModalOpen} title={editingTaskId ? 'Editar tarea' : 'Crear tarea'} description="Formulario compacto para alta o edición de tareas.">
+      <Modal open={isModalOpen} onOpenChange={handleModalChange} title={editingTaskId ? 'Editar tarea' : 'Crear tarea'} description="Formulario compacto para alta o edición de tareas.">
         <form className="space-y-4" onSubmit={handleSubmit}>
-          <Input placeholder="Título" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
-          <textarea className="panel-input min-h-[120px]" placeholder="Descripción" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+          {actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
+          <FormField label="Título"><Input placeholder="Título" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} /></FormField>
+          <FormField label="Descripción"><textarea className="panel-input min-h-[120px]" placeholder="Descripción" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></FormField>
           <div className="grid gap-4 md:grid-cols-2">
-            <select className="panel-input" value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}>
+            <FormField label="Prioridad"><select className="panel-input" value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}>
               <option value="low">baja</option>
               <option value="medium">media</option>
               <option value="high">alta</option>
               <option value="critical">crítica</option>
-            </select>
-            <select className="panel-input" value={form.taskType} onChange={(event) => setForm((current) => ({ ...current, taskType: event.target.value }))}>
+            </select></FormField>
+            <FormField label="Tipo"><select className="panel-input" value={form.taskType} onChange={(event) => setForm((current) => ({ ...current, taskType: event.target.value }))}>
               <option value="frontend">frontend</option>
               <option value="backend">backend</option>
               <option value="database">base de datos</option>
-                <option value="mcp">MCP</option>
-                <option value="fullstack">full stack</option>
+              <option value="mcp">MCP</option>
+              <option value="fullstack">full stack</option>
               <option value="infrastructure">infraestructura</option>
               <option value="documentation">documentación</option>
-            </select>
+            </select></FormField>
           </div>
-          <textarea className="panel-input min-h-[110px]" placeholder="Acción solicitada" value={form.requestedAction} onChange={(event) => setForm((current) => ({ ...current, requestedAction: event.target.value }))} />
+          <FormField label="Acción solicitada" helper="Texto exacto que se enviará al runtime o al adaptador."><textarea className="panel-input min-h-[110px]" placeholder="Acción solicitada" value={form.requestedAction} onChange={(event) => setForm((current) => ({ ...current, requestedAction: event.target.value }))} /></FormField>
           <div className="flex flex-wrap gap-3">
-            <Button type="submit">{editingTaskId ? 'Guardar tarea' : 'Crear y ejecutar'}</Button>
+            <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : editingTaskId ? 'Guardar tarea' : 'Crear y ejecutar'}</Button>
             <Button type="button" variant="secondary" onClick={resetForm}>Cancelar</Button>
           </div>
         </form>

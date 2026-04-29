@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Cpu, Siren, Waypoints } from 'lucide-react';
 import { commandCenterApi } from '../api/commandCenterApi';
+import { Button } from '../components/button';
 import {
   DataTable,
+  EmptyState,
   ErrorState,
   formatDisplayText,
+  formatDuration,
   InfoPanel,
   LoadingState,
   MetricCard,
@@ -23,17 +26,28 @@ function metricProgress(value: number, total: number) {
 
 export function DashboardPage() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadDashboard = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      setDashboard(await commandCenterApi.getDashboard());
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo cargar el panel general.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    commandCenterApi
-      .getDashboard()
-      .then(setDashboard)
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'No se pudo cargar el panel general.'));
+    void loadDashboard();
   }, []);
 
-  if (error) return <ErrorState message={error} />;
-  if (!dashboard) return <LoadingState label="Cargando centro de mando..." />;
+  if (error) return <ErrorState message={error} action={<Button onClick={() => void loadDashboard()}>Reintentar</Button>} />;
+  if (isLoading) return <LoadingState label="Cargando centro de comando..." />;
+  if (!dashboard) return <EmptyState title="Sin panel disponible" description="No se recibió un estado consolidado del centro de comando para este entorno." action={<Button onClick={() => void loadDashboard()}>Actualizar</Button>} />;
 
   const latestAlerts = dashboard.alerts.slice(0, 4);
   const totalTracked =
@@ -101,7 +115,7 @@ export function DashboardPage() {
 
                 <div className="w-full lg:w-[16rem]">
                   <InfoPanel
-                    eyebrow="Runtime"
+                    eyebrow="Entorno"
                     title={dashboard.connectionStatus === 'connected' ? 'Conectado' : 'Atención requerida'}
                     description="Integración principal disponible para operación."
                     tone={dashboard.connectionStatus === 'connected' ? 'success' : 'warning'}
@@ -184,7 +198,7 @@ export function DashboardPage() {
               <StatusBadge status={run.status} />,
               <span className="text-sm text-zinc-300">{formatDisplayText(run.execution_mode)}</span>,
               <span className="max-w-xs text-sm leading-6 text-zinc-300">{run.requested_action}</span>,
-              run.duration_ms ? `${run.duration_ms} ms` : 'en curso',
+               run.duration_ms ? formatDuration(run.duration_ms) : 'En curso',
             ])}
           />
         </SectionCard>
@@ -277,26 +291,30 @@ export function DashboardPage() {
       </div>
 
       <SectionCard title="Servicios conectados" subtitle="Estado resumido de servidores MCP registrados en el entorno actual.">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {dashboard.mcpServers.map((server) => (
-            <div key={server.id} className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white">{server.name}</p>
-                  <p className="mt-1 text-sm text-zinc-400">{formatDisplayText(server.transport_type)}</p>
+        {dashboard.mcpServers.length === 0 ? (
+          <EmptyState title="Sin servicios conectados" description="Todavía no hay servidores MCP visibles para este entorno operativo." />
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {dashboard.mcpServers.map((server) => (
+              <div key={server.id} className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">{server.name}</p>
+                    <p className="mt-1 text-sm text-zinc-400">{formatDisplayText(server.transport_type)}</p>
+                  </div>
+                  <StatusBadge status={server.status} />
                 </div>
-                <StatusBadge status={server.status} />
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {server.allowed_actions.slice(0, 3).map((action) => (
+                    <span key={action} className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-xs font-medium text-zinc-400">
+                      {formatDisplayText(action)}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {server.allowed_actions.slice(0, 3).map((action) => (
-                  <span key={action} className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-xs font-medium text-zinc-400">
-                    {formatDisplayText(action)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </SectionCard>
     </PageShell>
   );

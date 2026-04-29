@@ -12,6 +12,7 @@ import {
   Search,
   Settings2,
   Shield,
+  TerminalSquare,
   Sparkles,
   Waypoints,
   Workflow,
@@ -60,9 +61,14 @@ const displayMap: Record<string, string> = {
   active: 'activo',
   inactive: 'inactivo',
   completed: 'completada',
+  cancelled: 'cancelada',
+  queued: 'en cola',
+  awaiting_approval: 'en espera de aprobación',
   connected: 'conectado',
+  disconnected: 'desconectado',
   approved: 'aprobada',
   rejected: 'rechazada',
+  executed: 'ejecutada',
   pending: 'pendiente',
   running: 'en curso',
   failed: 'fallida',
@@ -90,9 +96,24 @@ const displayMap: Record<string, string> = {
   orchestrator: 'orquestador',
   mock: 'simulado',
   production: 'producción',
+  api: 'API',
+  cli: 'CLI',
+  stdio: 'stdio',
+  websocket: 'websocket',
+  http: 'http',
+  maintenance: 'mantenimiento',
+  deprecated: 'obsoleta',
+  draft: 'borrador',
   logs: 'registros',
   info: 'información',
   error: 'error',
+  system_command: 'comando del sistema',
+  sensitive_file_change: 'cambio de archivo sensible',
+  delete_file: 'eliminación de archivo',
+  config_change: 'cambio de configuración',
+  database_change: 'cambio en base de datos',
+  migration: 'migración',
+  mcp_write: 'escritura MCP',
 };
 
 function humanizeToken(token: string) {
@@ -114,6 +135,37 @@ export function formatDisplayText(value: string) {
     .split(/([_\-\s/]+)/)
     .map((part) => (/[_\-\s/]+/.test(part) ? part.replace(/_/g, ' ') : humanizeToken(part)))
     .join('');
+}
+
+export function formatDateTime(value?: string | null) {
+  if (!value) return 'No disponible';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('es-ES', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+export function formatDuration(value?: number | null) {
+  if (value === null || value === undefined) return 'Sin duración';
+  if (value < 1000) return `${value} ms`;
+  const seconds = value / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)} s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainderSeconds = Math.round(seconds % 60);
+  return `${minutes} min ${remainderSeconds}s`;
+}
+
+export function formatValue(value: unknown) {
+  if (value === null || value === undefined || value === '') return 'Sin dato';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return 'Valor no serializable';
+  }
 }
 
 function statusTone(status: string) {
@@ -189,7 +241,7 @@ export function Sidebar({ isOpen, isCollapsed, onClose, onToggleCollapse }: { is
           </div>
 
           <div className="mt-5 rounded-[18px] border border-white/8 bg-white/[0.03] px-3 py-3">
-            {isCollapsed ? <div className="mx-auto h-2.5 w-2.5 rounded-full bg-emerald-400" /> : <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-white">Runtime</p><p className="mt-1 text-[11px] text-zinc-500">Conectado</p></div><div className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400" /></div>}
+            {isCollapsed ? <div className="mx-auto h-2.5 w-2.5 rounded-full bg-emerald-400" /> : <div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="text-xs font-semibold text-white">Entorno</p><p className="mt-1 text-[11px] text-zinc-500">Conectado</p></div><div className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400" /></div>}
           </div>
         </div>
       </aside>
@@ -215,8 +267,8 @@ export function Topbar({ onToggleSidebar }: { onToggleSidebar: () => void }) {
             <input className="w-full border-0 bg-transparent p-0 text-sm text-zinc-100 outline-none placeholder:text-zinc-500" placeholder="Buscar tareas, agentes, capacidades o registros" />
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <MetricPill label="Runtime" value="Conectado" tone="success" />
-            <MetricPill label="Entorno" value="Producción" tone="default" />
+            <MetricPill label="Entorno" value="Conectado" tone="success" />
+            <MetricPill label="Modo" value="Producción" tone="default" />
           </div>
         </div>
       </div>
@@ -232,8 +284,8 @@ export function MetricCard({ label, value, helper, trend }: { label: string; val
   return <article className="panel-card panel-card-hover p-4"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{label}</p><p className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">{value}</p></div>{trend ? <span className="w-fit rounded-full border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-zinc-300">{trend}</span> : null}</div><p className="mt-2 text-sm leading-6 text-zinc-400">{helper}</p></article>;
 }
 
-export function EmptyState({ title, description }: { title: string; description: string }) {
-  return <div className="panel-card p-6 text-center sm:p-8"><h3 className="text-lg font-semibold text-white">{title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{description}</p></div>;
+export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
+  return <div className="panel-card p-6 text-center sm:p-8"><h3 className="text-lg font-semibold text-white">{title}</h3><p className="mt-2 text-sm leading-6 text-zinc-400">{description}</p>{action ? <div className="mt-4 flex justify-center">{action}</div> : null}</div>;
 }
 
 export function StatsGrid({ items, className = 'metric-grid' }: { items: Array<{ eyebrow: string; title: string; description: string; tone?: 'default' | 'success' | 'warning' | 'danger' }>; className?: string }) {
@@ -244,8 +296,32 @@ export function LoadingState({ label }: { label: string }) {
   return <div className="panel-card p-5 sm:p-6"><div className="flex items-center gap-3 text-sm text-zinc-400"><span className="inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-blue-400" />{label}</div></div>;
 }
 
-export function ErrorState({ message }: { message: string }) {
-  return <div className="rounded-[20px] border border-rose-500/20 bg-rose-500/10 p-4 text-rose-200 sm:p-5"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-300">Error</p><p className="mt-2 text-sm leading-6">{message}</p></div>;
+export function ErrorState({ message, action }: { message: string; action?: ReactNode }) {
+  return <div className="rounded-[20px] border border-rose-500/20 bg-rose-500/10 p-4 text-rose-200 sm:p-5"><p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-300">Error</p><p className="mt-2 text-sm leading-6">{message}</p>{action ? <div className="mt-4">{action}</div> : null}</div>;
+}
+
+export function FormField({ label, helper, children }: { label: string; helper?: string; children: ReactNode }) {
+  return <label className="grid gap-2"><span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{label}</span>{children}{helper ? <span className="text-xs leading-5 text-zinc-500">{helper}</span> : null}</label>;
+}
+
+export function ActionFeedback({ tone = 'default', message }: { tone?: 'default' | 'success' | 'warning'; message: string }) {
+  const tones = {
+    default: 'border-white/8 bg-white/[0.03] text-zinc-300',
+    success: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200',
+    warning: 'border-amber-500/20 bg-amber-500/10 text-amber-200',
+  };
+  return <div className={`rounded-[18px] border px-4 py-3 text-sm leading-6 ${tones[tone]}`}>{message}</div>;
+}
+
+export function DetailList({ items }: { items: Array<{ label: string; value: ReactNode }> }) {
+  return <div className="grid gap-3">{items.map((item) => <div key={item.label} className="surface-muted grid gap-1 px-4 py-3"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">{item.label}</p><div className="min-w-0 break-words text-sm leading-6 text-zinc-200">{item.value}</div></div>)}</div>;
+}
+
+export function ChipGroup({ items, emptyLabel = 'Sin elementos' }: { items: string[]; emptyLabel?: string }) {
+  if (items.length === 0) {
+    return <span className="text-sm text-zinc-500">{emptyLabel}</span>;
+  }
+  return <div className="flex flex-wrap gap-2">{items.map((item) => <span key={item} className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-xs font-medium text-zinc-300">{formatDisplayText(item)}</span>)}</div>;
 }
 
 export function DataTable({ columns, rows }: { columns: string[]; rows: ReactNode[][] }) {
@@ -331,6 +407,10 @@ export function ConnectionStatus({ status, label }: { status: string; label: str
 
 export function ConfirmDialog({ title, description }: { title: string; description: string }) {
   return <div className="rounded-[18px] border border-amber-500/20 bg-amber-500/10 p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-300">Control</p><h3 className="mt-2 text-base font-semibold text-amber-100">{title}</h3><p className="mt-2 text-sm leading-6 text-amber-200/80">{description}</p></div>;
+}
+
+export function ConsoleEmptyGuide() {
+  return <div className="panel-card p-5 sm:p-6"><div className="flex items-start gap-3"><div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.03] text-zinc-200"><TerminalSquare className="h-5 w-5" /></div><div><h3 className="text-base font-semibold text-white">Consola de observación</h3><p className="mt-2 text-sm leading-6 text-zinc-400">Este módulo prioriza seguridad: muestra contexto operativo, pero no permite lanzar comandos arbitrarios desde la interfaz.</p></div></div></div>;
 }
 
 export function PageShell({ title, description, children, action }: { title: string; description: string; children: ReactNode; action?: ReactNode }) {

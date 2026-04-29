@@ -1,24 +1,37 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { Button } from '../components/button';
+import { ChipGroup, DataTable, DetailList, EmptyState, ErrorState, formatDateTime, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { McpServer, McpTool } from '../types/domain';
 
 export function McpPage() {
   const [servers, setServers] = useState<McpServer[]>([]);
   const [tools, setTools] = useState<McpTool[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const loadMcp = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const [loadedServers, loadedTools] = await Promise.all([commandCenterApi.getMcpServers(), commandCenterApi.getMcpTools()]);
+      setServers(loadedServers);
+      setTools(loadedTools);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo cargar MCP.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    Promise.all([commandCenterApi.getMcpServers(), commandCenterApi.getMcpTools()])
-      .then(([loadedServers, loadedTools]) => {
-        setServers(loadedServers);
-        setTools(loadedTools);
-      })
-      .catch((reason) => setError(reason instanceof Error ? reason.message : 'No se pudo cargar MCP.'));
+    void loadMcp();
   }, []);
 
-  if (error) return <ErrorState message={error} />;
-  if (!servers || !tools) return <LoadingState label="Cargando MCP..." />;
+  if (error) return <ErrorState message={error} action={<Button onClick={() => void loadMcp()}>Reintentar</Button>} />;
+  if (isLoading) return <LoadingState label="Cargando MCP..." />;
+
+  const firstConnectedServer = servers.find((server) => server.status === 'connected') ?? servers[0];
 
   return (
     <PageShell title="Espacio MCP" description="Inventario de servidores MCP, herramientas expuestas, permisos y preparación de extensibilidad para el centro de comando.">
@@ -46,6 +59,10 @@ export function McpPage() {
         </SectionCard>
 
         <div className="space-y-5">
+          <SectionCard title="Servidor destacado" subtitle="Ficha rápida del primer servidor conectado o del primero registrado.">
+            {firstConnectedServer ? <DetailList items={[{ label: 'Servidor', value: firstConnectedServer.name }, { label: 'Estado', value: <StatusBadge status={firstConnectedServer.status} /> }, { label: 'Último visto', value: formatDateTime(firstConnectedServer.last_seen_at) }, { label: 'Permisos', value: <ChipGroup items={firstConnectedServer.permissions} emptyLabel="Sin permisos declarados" /> }, { label: 'Acciones permitidas', value: <ChipGroup items={firstConnectedServer.allowed_actions} emptyLabel="Sin acciones declaradas" /> }]} /> : <EmptyState title="Sin servidor destacado" description="Todavía no hay servidores MCP registrados para resumir en esta ficha." />}
+          </SectionCard>
+
           <SectionCard title="Herramientas" subtitle="Herramientas conocidas por la capa MCP actual.">
             <DataTable
               columns={['Herramienta', 'Permiso', 'Estado']}
