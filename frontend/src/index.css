@@ -1,22 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
-  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-  background: #edf3f9;
-  color: #0f172a;
+  color-scheme: dark;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #09090b;
+  color: #f4f4f5;
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --panel-soft: rgba(255, 255, 255, 0.04);
+  --panel-strong: rgba(17, 19, 24, 0.92);
 }
 
 html {
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 26%),
-    radial-gradient(circle at top right, rgba(45, 212, 191, 0.12), transparent 20%),
-    linear-gradient(180deg, #edf3f9 0%, #f5f9fd 54%, #f7fbff 100%);
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 22%),
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.12), transparent 18%),
+    linear-gradient(180deg, #09090b 0%, #0b1120 45%, #09090b 100%);
 }
 
 body {
@@ -24,7 +27,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   background: transparent;
-  color: #0f172a;
+  color: #f4f4f5;
+  line-height: 1.5;
 }
 
 #root {
@@ -36,7 +40,7 @@ body {
 }
 
 *::selection {
-  background: rgba(56, 189, 248, 0.18);
+  background: rgba(59, 130, 246, 0.28);
 }
 
 a {
@@ -56,66 +60,87 @@ input,
 select,
 textarea,
 [role='button'] {
-  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/80 focus-visible:ring-offset-2 focus-visible:ring-offset-white;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090b];
 }
 
 .panel-input {
-  @apply w-full rounded-[22px] border border-slate-200/90 bg-white/95 px-4 py-3 text-sm text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.04)] outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100;
+  @apply w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-500 focus:border-blue-400/40 focus:bg-white/[0.06] focus:ring-4 focus:ring-blue-500/10;
 }
 
 .panel-card {
-  @apply rounded-[30px] border border-white/80 bg-white/92 shadow-[0_24px_50px_rgba(15,23,42,0.06)];
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(17, 19, 24, 0.96), rgba(14, 16, 22, 0.92));
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
 }
 
 .panel-card-hover {
-  @apply transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_28px_56px_rgba(15,23,42,0.09)];
+  transition: 200ms;
+}
+
+.panel-card-hover:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(20, 24, 33, 0.96);
 }
 
 .surface-muted {
-  @apply rounded-[24px] border border-slate-100 bg-slate-50/90;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  background: var(--panel-soft);
 }
 
 .page-grid {
-  @apply grid gap-6;
+  @apply grid gap-5;
 }
 
-.scrollbar-light {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+.hero-panel {
+  position: relative;
+  overflow: hidden;
 }
 
-.scrollbar-light::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+.hero-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.16), transparent 32%),
+    radial-gradient(circle at right, rgba(168, 85, 247, 0.14), transparent 26%);
+  pointer-events: none;
 }
 
-.scrollbar-light::-webkit-scrollbar-track {
-  background: transparent;
+.metric-grid {
+  @apply grid gap-4 sm:grid-cols-2 xl:grid-cols-4;
 }
 
-.scrollbar-light::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(148, 163, 184, 0.8), rgba(100, 116, 139, 0.85));
-  background-clip: padding-box;
+.summary-grid {
+  @apply grid gap-4 sm:grid-cols-2 xl:grid-cols-3;
 }
 
+.keyline {
+  @apply h-px w-full bg-white/10;
+}
+
+.scrollbar-light,
 .scrollbar-dark {
   scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+  scrollbar-color: rgba(113, 113, 122, 0.7) transparent;
 }
 
+.scrollbar-light::-webkit-scrollbar,
 .scrollbar-dark::-webkit-scrollbar {
-  width: 10px;
+  width: 9px;
+  height: 9px;
 }
 
+.scrollbar-light::-webkit-scrollbar-track,
 .scrollbar-dark::-webkit-scrollbar-track {
   background: transparent;
 }
 
+.scrollbar-light::-webkit-scrollbar-thumb,
 .scrollbar-dark::-webkit-scrollbar-thumb {
   border: 2px solid transparent;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(148, 163, 184, 0.42), rgba(71, 85, 105, 0.75));
+  background: linear-gradient(180deg, rgba(113, 113, 122, 0.85), rgba(63, 63, 70, 0.92));
   background-clip: padding-box;
 }

@@ -38,20 +38,22 @@ export function App() {
       />
       <div className="min-w-0 flex-1">
         <Topbar onToggleSidebar={() => setIsSidebarOpen((current) => !current)} />
-        <main className="scrollbar-light px-4 py-6 sm:px-6 lg:h-[calc(100vh-84px)] lg:overflow-y-auto lg:px-8">
-          <Routes>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/agents" element={<AgentsPage />} />
-            <Route path="/skills" element={<SkillsPage />} />
-            <Route path="/tasks" element={<TasksPage />} />
-            <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
-            <Route path="/runs" element={<RunsPage />} />
-            <Route path="/console" element={<CommandConsolePage />} />
-            <Route path="/approvals" element={<ApprovalsPage />} />
-            <Route path="/audit" element={<AuditPage />} />
-            <Route path="/mcp" element={<McpPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-          </Routes>
+        <main className="scrollbar-light px-4 py-5 sm:px-6 lg:h-[calc(100vh-76px)] lg:overflow-y-auto lg:px-7">
+          <div className="mx-auto flex w-full max-w-[1560px] flex-col gap-5 pb-8">
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/agents" element={<AgentsPage />} />
+              <Route path="/skills" element={<SkillsPage />} />
+              <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
+              <Route path="/runs" element={<RunsPage />} />
+              <Route path="/console" element={<CommandConsolePage />} />
+              <Route path="/approvals" element={<ApprovalsPage />} />
+              <Route path="/audit" element={<AuditPage />} />
+              <Route path="/mcp" element={<McpPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+            </Routes>
+          </div>
         </main>
       </div>
     </div>
