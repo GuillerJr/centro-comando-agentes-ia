@@ -146,6 +146,67 @@ CREATE TABLE IF NOT EXISTS ai_system_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS ai_offices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug VARCHAR(80) NOT NULL UNIQUE,
+  name VARCHAR(140) NOT NULL,
+  description TEXT NOT NULL,
+  grid_columns INTEGER NOT NULL DEFAULT 16 CHECK (grid_columns BETWEEN 1 AND 48),
+  grid_rows INTEGER NOT NULL DEFAULT 8 CHECK (grid_rows BETWEEN 1 AND 48),
+  is_default BOOLEAN NOT NULL DEFAULT FALSE,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_office_zones (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  office_id UUID NOT NULL REFERENCES ai_offices(id) ON DELETE CASCADE,
+  code VARCHAR(80) NOT NULL,
+  name VARCHAR(140) NOT NULL,
+  subtitle TEXT NOT NULL,
+  zone_type VARCHAR(40) NOT NULL CHECK (zone_type IN ('control', 'delivery', 'review', 'integration', 'focus', 'observability')),
+  accent VARCHAR(120) NOT NULL,
+  grid_x INTEGER NOT NULL CHECK (grid_x >= 0),
+  grid_y INTEGER NOT NULL CHECK (grid_y >= 0),
+  grid_w INTEGER NOT NULL CHECK (grid_w >= 1),
+  grid_h INTEGER NOT NULL CHECK (grid_h >= 1),
+  display_order INTEGER NOT NULL DEFAULT 0,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (office_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS ai_office_stations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  zone_id UUID NOT NULL REFERENCES ai_office_zones(id) ON DELETE CASCADE,
+  code VARCHAR(80) NOT NULL,
+  name VARCHAR(140) NOT NULL,
+  station_type VARCHAR(40) NOT NULL CHECK (station_type IN ('desk', 'table', 'booth', 'console', 'gateway')),
+  status VARCHAR(20) NOT NULL DEFAULT 'available' CHECK (status IN ('available', 'occupied', 'reserved', 'maintenance')),
+  capacity INTEGER NOT NULL DEFAULT 1 CHECK (capacity >= 1 AND capacity <= 20),
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (zone_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS ai_office_agent_assignments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  station_id UUID NOT NULL REFERENCES ai_office_stations(id) ON DELETE CASCADE,
+  agent_id UUID NOT NULL REFERENCES ai_agents(id) ON DELETE CASCADE,
+  task_id UUID REFERENCES ai_tasks(id) ON DELETE SET NULL,
+  assignment_role VARCHAR(80) NOT NULL,
+  presence_status VARCHAR(20) NOT NULL DEFAULT 'present' CHECK (presence_status IN ('present', 'focusing', 'in_review', 'away')),
+  is_primary BOOLEAN NOT NULL DEFAULT TRUE,
+  notes TEXT,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (agent_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_ai_agents_status ON ai_agents(status);
 CREATE INDEX IF NOT EXISTS idx_ai_skills_type_status ON ai_skills(skill_type, status);
 CREATE INDEX IF NOT EXISTS idx_ai_tasks_status_priority ON ai_tasks(status, priority);
@@ -159,6 +220,11 @@ CREATE INDEX IF NOT EXISTS idx_ai_audit_logs_severity ON ai_audit_logs(severity)
 CREATE INDEX IF NOT EXISTS idx_ai_mcp_servers_status ON ai_mcp_servers(status);
 CREATE INDEX IF NOT EXISTS idx_ai_mcp_tools_server_id ON ai_mcp_tools(server_id);
 CREATE INDEX IF NOT EXISTS idx_ai_system_settings_category ON ai_system_settings(category);
+CREATE INDEX IF NOT EXISTS idx_ai_offices_default ON ai_offices(is_default);
+CREATE INDEX IF NOT EXISTS idx_ai_office_zones_office_order ON ai_office_zones(office_id, display_order);
+CREATE INDEX IF NOT EXISTS idx_ai_office_stations_zone_status ON ai_office_stations(zone_id, status);
+CREATE INDEX IF NOT EXISTS idx_ai_office_agent_assignments_station ON ai_office_agent_assignments(station_id);
+CREATE INDEX IF NOT EXISTS idx_ai_office_agent_assignments_task ON ai_office_agent_assignments(task_id);
 
 DROP TRIGGER IF EXISTS trg_ai_agents_updated_at ON ai_agents;
 CREATE TRIGGER trg_ai_agents_updated_at BEFORE UPDATE ON ai_agents FOR EACH ROW EXECUTE FUNCTION set_updated_at();
@@ -178,3 +244,11 @@ DROP TRIGGER IF EXISTS trg_ai_mcp_tools_updated_at ON ai_mcp_tools;
 CREATE TRIGGER trg_ai_mcp_tools_updated_at BEFORE UPDATE ON ai_mcp_tools FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_system_settings_updated_at ON ai_system_settings;
 CREATE TRIGGER trg_ai_system_settings_updated_at BEFORE UPDATE ON ai_system_settings FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_ai_offices_updated_at ON ai_offices;
+CREATE TRIGGER trg_ai_offices_updated_at BEFORE UPDATE ON ai_offices FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_ai_office_zones_updated_at ON ai_office_zones;
+CREATE TRIGGER trg_ai_office_zones_updated_at BEFORE UPDATE ON ai_office_zones FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_ai_office_stations_updated_at ON ai_office_stations;
+CREATE TRIGGER trg_ai_office_stations_updated_at BEFORE UPDATE ON ai_office_stations FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_ai_office_agent_assignments_updated_at ON ai_office_agent_assignments;
+CREATE TRIGGER trg_ai_office_agent_assignments_updated_at BEFORE UPDATE ON ai_office_agent_assignments FOR EACH ROW EXECUTE FUNCTION set_updated_at();

@@ -1,4 +1,4 @@
-import type { Agent, Approval, AuditLog, ConsoleSnapshot, DashboardData, McpServer, McpTool, Skill, SystemSetting, Task, TaskRun } from '../types/domain';
+import type { Agent, Approval, AuditLog, ConsoleSnapshot, DashboardData, McpServer, McpTool, OfficeLayout, OfficeState, Skill, SystemSetting, Task, TaskRun } from '../types/domain';
 import { apiRequest } from './client';
 
 export const commandCenterApi = {
@@ -40,6 +40,9 @@ export const commandCenterApi = {
   getMcpServers: () => apiRequest<McpServer[]>('/mcp/servers'),
   createMcpServer: (payload: unknown) => apiRequest<McpServer>('/mcp/servers', { method: 'POST', body: JSON.stringify(payload) }),
   getMcpTools: () => apiRequest<McpTool[]>('/mcp/tools'),
+
+  getCurrentOfficeLayout: () => apiRequest<OfficeLayout>('/offices/current/layout'),
+  getCurrentOfficeState: () => apiRequest<OfficeState>('/offices/current/state'),
 
   getSettings: async () => {
     const dashboard = await apiRequest<DashboardData>('/system/dashboard');

@@ -171,6 +171,72 @@ export const commandCenterRepository = {
     const result = await pool.query('SELECT * FROM ai_system_settings ORDER BY setting_key ASC');
     return result.rows;
   },
+  async getDefaultOffice() {
+    const result = await pool.query('SELECT * FROM ai_offices WHERE is_default = TRUE ORDER BY created_at ASC LIMIT 1');
+    return result.rows[0] ?? null;
+  },
+  async getOfficeZones(officeId: string) {
+    const result = await pool.query('SELECT * FROM ai_office_zones WHERE office_id = $1 ORDER BY display_order ASC, created_at ASC', [officeId]);
+    return result.rows;
+  },
+  async getOfficeStations(officeId: string) {
+    const result = await pool.query(
+      `SELECT stations.*
+       FROM ai_office_stations stations
+       INNER JOIN ai_office_zones zones ON zones.id = stations.zone_id
+       WHERE zones.office_id = $1
+       ORDER BY zones.display_order ASC, stations.name ASC`,
+      [officeId],
+    );
+    return result.rows;
+  },
+  async getOfficeAssignments(officeId: string) {
+    const result = await pool.query(
+      `SELECT
+         assignment.id,
+         assignment.station_id,
+         assignment.agent_id,
+         assignment.task_id,
+         assignment.assignment_role,
+         assignment.presence_status,
+         assignment.is_primary,
+         assignment.notes,
+         assignment.metadata,
+         station.zone_id,
+         station.name AS station_name,
+         agent.name AS agent_name,
+         agent.description AS agent_description,
+         agent.agent_type,
+         agent.status AS agent_status,
+         agent.skill_ids,
+         agent.priority,
+         agent.execution_limit,
+         agent.metadata AS agent_metadata,
+         agent.last_activity_at,
+         agent.created_at AS agent_created_at,
+         task.title AS task_title,
+         task.description AS task_description,
+         task.priority AS task_priority,
+         task.task_type,
+         task.status AS task_status,
+         task.result_summary,
+         task.logs,
+         task.created_by,
+         task.metadata AS task_metadata,
+         task.created_at AS task_created_at,
+         task.started_at,
+         task.completed_at
+       FROM ai_office_agent_assignments assignment
+       INNER JOIN ai_office_stations station ON station.id = assignment.station_id
+       INNER JOIN ai_office_zones zone ON zone.id = station.zone_id
+       INNER JOIN ai_agents agent ON agent.id = assignment.agent_id
+       LEFT JOIN ai_tasks task ON task.id = assignment.task_id
+       WHERE zone.office_id = $1
+       ORDER BY zone.display_order ASC, station.name ASC, agent.priority DESC, agent.name ASC`,
+      [officeId],
+    );
+    return result.rows;
+  },
   async getDashboardMetrics() {
     const result = await pool.query(`
       SELECT
