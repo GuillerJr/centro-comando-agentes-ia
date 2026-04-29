@@ -353,132 +353,186 @@ export function OfficeDesignPage() {
       </section>
 
       <div className="office-design-lower-grid">
-        <SectionCard title="Administración espacial" subtitle="Se conserva el CRUD real, pero en una banda de soporte más compacta que no compite con la escena." action={<div className="flex flex-wrap gap-2"><Button onClick={() => setZoneModalOpen(true)}><Plus className="mr-2 h-4 w-4" />Zona</Button><Button variant="secondary" onClick={() => { if (state.zones[0]) setStationForm((current) => ({ ...current, zoneId: state.zones[0].id })); setStationModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Estación</Button><Button variant="ghost" onClick={() => { if (allStations[0]) setAssignmentForm((current) => ({ ...current, stationId: allStations[0].id })); if (agents[0]) setAssignmentForm((current) => ({ ...current, agentId: agents[0].id })); setAssignmentModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Asignación</Button></div>}>
+        <SectionCard title="Administración espacial" subtitle="CRUD compacto y mucho más ordenado, priorizando tablas responsivas sobre bloques sueltos." action={<div className="flex flex-wrap gap-2"><Button onClick={() => setZoneModalOpen(true)}><Plus className="mr-2 h-4 w-4" />Zona</Button><Button variant="secondary" onClick={() => { if (state.zones[0]) setStationForm((current) => ({ ...current, zoneId: state.zones[0].id })); setStationModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Estación</Button><Button variant="ghost" onClick={() => { if (allStations[0]) setAssignmentForm((current) => ({ ...current, stationId: allStations[0].id })); if (agents[0]) setAssignmentForm((current) => ({ ...current, agentId: agents[0].id })); setAssignmentModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Asignación</Button></div>}>
           <div className="grid gap-5 xl:grid-cols-3">
-          <div className="space-y-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Zonas</p>
-            {state.zones.map((zone) => (
-              <div key={zone.id} className="surface-muted p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{zone.name}</p>
-                    <p className="mt-1 text-sm text-zinc-400">{zone.subtitle}</p>
-                    <p className="mt-2 text-xs text-zinc-500">Grid {zone.x},{zone.y} · {zone.w}x{zone.h}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => { setEditingZoneId(zone.id); setZoneForm({ code: zone.code, name: zone.name, subtitle: zone.subtitle, zoneType: zone.zoneType, accent: zone.accent, gridX: zone.x, gridY: zone.y, gridW: zone.w, gridH: zone.h, displayOrder: 0 }); setZoneModalOpen(true); }}>Editar</Button>
-                    <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void runMutation(() => commandCenterApi.deleteOfficeZone(zone.id), 'La zona se eliminó correctamente.', 'No se pudo eliminar la zona.')}>Eliminar</Button>
-                  </div>
-                </div>
+            <div className="space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Zonas</p>
+              <div className="overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.02]">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-3">Zona</th>
+                      <th className="px-4 py-3">Grid</th>
+                      <th className="px-4 py-3">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.zones.map((zone) => (
+                      <tr key={zone.id} className="border-t border-white/6 align-top text-zinc-300">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-white">{zone.name}</div>
+                          <div className="mt-1 text-xs text-zinc-500">{zone.subtitle}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-400">{zone.x},{zone.y} · {zone.w}x{zone.h}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => { setEditingZoneId(zone.id); setZoneForm({ code: zone.code, name: zone.name, subtitle: zone.subtitle, zoneType: zone.zoneType, accent: zone.accent, gridX: zone.x, gridY: zone.y, gridW: zone.w, gridH: zone.h, displayOrder: 0 }); setZoneModalOpen(true); }}>Editar</Button>
+                            <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void runMutation(() => commandCenterApi.deleteOfficeZone(zone.id), 'La zona se eliminó correctamente.', 'No se pudo eliminar la zona.')}>Eliminar</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="space-y-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Estaciones</p>
-            {allStations.map((station) => (
-              <div key={station.id} className="surface-muted p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{station.name}</p>
-                    <p className="mt-1 text-sm text-zinc-400">{station.zoneName} · {formatDisplayText(station.stationType)}</p>
-                    <p className="mt-2 text-xs text-zinc-500">Capacidad {station.capacity} · {station.assignmentCount ?? 0} ocupadas</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => { setEditingStationId(station.id); setStationForm({ zoneId: station.zoneId, code: station.code, name: station.name, stationType: station.stationType, status: station.status, capacity: station.capacity }); setStationModalOpen(true); }}>Editar</Button>
-                    <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void runMutation(() => commandCenterApi.deleteOfficeStation(station.id), 'La estación se eliminó correctamente.', 'No se pudo eliminar la estación.')}>Eliminar</Button>
-                  </div>
-                </div>
+            <div className="space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Estaciones</p>
+              <div className="overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.02]">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-3">Estación</th>
+                      <th className="px-4 py-3">Capacidad</th>
+                      <th className="px-4 py-3">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allStations.map((station) => (
+                      <tr key={station.id} className="border-t border-white/6 align-top text-zinc-300">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-white">{station.name}</div>
+                          <div className="mt-1 text-xs text-zinc-500">{station.zoneName} · {formatDisplayText(station.stationType)}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-400">{station.capacity} · {station.assignmentCount ?? 0} ocupadas</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => { setEditingStationId(station.id); setStationForm({ zoneId: station.zoneId, code: station.code, name: station.name, stationType: station.stationType, status: station.status, capacity: station.capacity }); setStationModalOpen(true); }}>Editar</Button>
+                            <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void runMutation(() => commandCenterApi.deleteOfficeStation(station.id), 'La estación se eliminó correctamente.', 'No se pudo eliminar la estación.')}>Eliminar</Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
+            </div>
 
-          <div className="space-y-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Asignaciones</p>
-            {allAssignments.length > 0 ? allAssignments.map((assignment) => (
-              <div key={assignment.assignmentId} className="surface-muted p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                      <Bot className="h-4 w-4 text-cyan-300" />
-                      <span>{assignment.agent.name}</span>
-                    </div>
-                    <p className="mt-1 text-sm text-zinc-400">{assignment.zoneName} · {assignment.stationName}</p>
-                    <p className="mt-2 text-xs text-zinc-500">{presenceLabel(assignment.presenceStatus)} · {assignment.task?.title ?? formatDisplayText(assignment.assignmentRole)}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => { setEditingAssignmentId(assignment.assignmentId); setAssignmentForm({ stationId: assignment.stationId, agentId: assignment.agent.id, taskId: assignment.task?.id ?? '', assignmentRole: assignment.assignmentRole, presenceStatus: assignment.presenceStatus, isPrimary: true, notes: assignment.notes ?? '' }); setAssignmentModalOpen(true); }}>Editar</Button>
-                    <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void runMutation(() => commandCenterApi.deleteOfficeAssignment(assignment.assignmentId), 'La asignación se eliminó correctamente.', 'No se pudo eliminar la asignación.')}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </div>
-              </div>
-            )) : <EmptyState title="Sin asignaciones" description="Todavía no hay agentes conectados a estaciones dentro del plano." />}
-          </div>
+            <div className="space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Asignaciones</p>
+              {allAssignments.length > 0 ? <div className="overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.02]">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-3">Agente</th>
+                      <th className="px-4 py-3">Ubicación</th>
+                      <th className="px-4 py-3">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allAssignments.map((assignment) => (
+                      <tr key={assignment.assignmentId} className="border-t border-white/6 align-top text-zinc-300">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2 font-medium text-white"><Bot className="h-4 w-4 text-cyan-300" />{assignment.agent.name}</div>
+                          <div className="mt-1 text-xs text-zinc-500">{presenceLabel(assignment.presenceStatus)} · {assignment.task?.title ?? formatDisplayText(assignment.assignmentRole)}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-zinc-400">{assignment.zoneName} · {assignment.stationName}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => { setEditingAssignmentId(assignment.assignmentId); setAssignmentForm({ stationId: assignment.stationId, agentId: assignment.agent.id, taskId: assignment.task?.id ?? '', assignmentRole: assignment.assignmentRole, presenceStatus: assignment.presenceStatus, isPrimary: true, notes: assignment.notes ?? '' }); setAssignmentModalOpen(true); }}>Editar</Button>
+                            <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void runMutation(() => commandCenterApi.deleteOfficeAssignment(assignment.assignmentId), 'La asignación se eliminó correctamente.', 'No se pudo eliminar la asignación.')}><Trash2 className="h-4 w-4" /></Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div> : <EmptyState title="Sin asignaciones" description="Todavía no hay agentes conectados a estaciones dentro del plano." />}
+            </div>
           </div>
         </SectionCard>
 
-        <SectionCard title="Registro operativo" subtitle="El resto de la señal queda agrupado en un único bloque analítico sobrio: tareas, ejecuciones, aprobaciones y consistencia.">
+        <SectionCard title="Registro operativo" subtitle="Registro más limpio y profesional, agrupado en tablas responsivas en lugar de cards repetidas.">
           <div className="grid gap-5 xl:grid-cols-3">
             <div className="space-y-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Tareas vivas</p>
-            {state.recentTasks.length === 0 ? <EmptyState title="Sin movimiento reciente" description="Todavía no hay tareas recientes enlazadas al pulso de la oficina." /> : state.recentTasks.map((task) => (
-              <div key={task.id} className="surface-muted p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{task.title}</p>
-                    <p className="mt-1 text-sm leading-6 text-zinc-400">{task.description}</p>
-                  </div>
-                  <StatusBadge status={task.status} />
-                </div>
-                <div className="mt-3 flex flex-col gap-1 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
-                  <span>{formatDisplayText(task.task_type)}</span>
-                  <span>{formatDateTime(task.started_at ?? task.created_at)}</span>
-                </div>
-              </div>
-            ))}
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Tareas vivas</p>
+              {state.recentTasks.length === 0 ? <EmptyState title="Sin movimiento reciente" description="Todavía no hay tareas recientes enlazadas al pulso de la oficina." /> : <div className="overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.02]">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-3">Tarea</th>
+                      <th className="px-4 py-3">Estado</th>
+                      <th className="px-4 py-3">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.recentTasks.map((task) => (
+                      <tr key={task.id} className="border-t border-white/6 align-top text-zinc-300">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-white">{task.title}</div>
+                          <div className="mt-1 text-xs text-zinc-500">{formatDisplayText(task.task_type)}</div>
+                        </td>
+                        <td className="px-4 py-3"><StatusBadge status={task.status} /></td>
+                        <td className="px-4 py-3 text-xs text-zinc-400">{formatDateTime(task.started_at ?? task.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>}
             </div>
 
             <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Ejecuciones y aprobaciones</p>
-              {state.activeRuns.length > 0 ? state.activeRuns.slice(0, 3).map((run) => (
-              <div key={run.id} className="surface-muted p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{run.requested_action}</p>
-                    <p className="mt-1 text-sm text-zinc-400">Modo {formatDisplayText(run.execution_mode)} · traza {run.trace_id.slice(0, 8)}</p>
-                  </div>
-                  <StatusBadge status={run.status} />
-                </div>
+              <div className="overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.02]">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-3">Registro</th>
+                      <th className="px-4 py-3">Tipo</th>
+                      <th className="px-4 py-3">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.activeRuns.slice(0, 3).map((run) => (
+                      <tr key={run.id} className="border-t border-white/6 align-top text-zinc-300">
+                        <td className="px-4 py-3"><div className="font-medium text-white">{run.requested_action}</div><div className="mt-1 text-xs text-zinc-500">traza {run.trace_id.slice(0, 8)}</div></td>
+                        <td className="px-4 py-3 text-xs text-zinc-400">Run · {formatDisplayText(run.execution_mode)}</td>
+                        <td className="px-4 py-3"><StatusBadge status={run.status} /></td>
+                      </tr>
+                    ))}
+                    {state.pendingApprovals.slice(0, 3).map((approval) => (
+                      <tr key={approval.id} className="border-t border-white/6 align-top text-zinc-300">
+                        <td className="px-4 py-3"><div className="font-medium text-white">{formatDisplayText(approval.approval_type)}</div><div className="mt-1 text-xs text-zinc-500">{approval.requested_by}</div></td>
+                        <td className="px-4 py-3 text-xs text-zinc-400">Aprobación</td>
+                        <td className="px-4 py-3"><StatusBadge status={approval.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            )) : <p className="text-sm text-zinc-500">No hay ejecuciones activas ahora mismo.</p>}
-
-              {state.pendingApprovals.slice(0, 3).map((approval) => (
-              <div key={approval.id} className="surface-muted p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{formatDisplayText(approval.approval_type)}</p>
-                    <p className="mt-1 text-sm text-zinc-400">Solicitado por {approval.requested_by}</p>
-                    <p className="mt-2 text-xs text-zinc-500">{approval.reason}</p>
-                  </div>
-                  <StatusBadge status={approval.status} />
-                </div>
-              </div>
-            ))}
             </div>
 
             <div className="space-y-3">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Riesgos y consistencia</p>
-              {state.warnings.length > 0 ? state.warnings.map((warning) => (
-                <div key={`${warning.code}-${warning.entityId ?? 'global'}`} className="surface-muted p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white">{warning.title}</p>
-                      <p className="mt-1 text-sm leading-6 text-zinc-400">{warning.description}</p>
-                    </div>
-                    <StatusBadge status={warning.level} />
-                  </div>
-                </div>
-              )) : <EmptyState title="Sin inconsistencias detectadas" description="No se detectan conflictos entre zonas, estaciones y asignaciones persistidas." />}
+              {state.warnings.length > 0 ? <div className="overflow-x-auto rounded-2xl border border-white/8 bg-white/[0.02]">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-zinc-500">
+                    <tr>
+                      <th className="px-4 py-3">Riesgo</th>
+                      <th className="px-4 py-3">Nivel</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {state.warnings.map((warning) => (
+                      <tr key={`${warning.code}-${warning.entityId ?? 'global'}`} className="border-t border-white/6 align-top text-zinc-300">
+                        <td className="px-4 py-3"><div className="font-medium text-white">{warning.title}</div><div className="mt-1 text-xs text-zinc-500">{warning.description}</div></td>
+                        <td className="px-4 py-3"><StatusBadge status={warning.level} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div> : <EmptyState title="Sin inconsistencias detectadas" description="No se detectan conflictos entre zonas, estaciones y asignaciones persistidas." />}
             </div>
           </div>
         </SectionCard>
