@@ -43,6 +43,15 @@ export const commandCenterApi = {
 
   getCurrentOfficeLayout: () => apiRequest<OfficeLayout>('/offices/current/layout'),
   getCurrentOfficeState: () => apiRequest<OfficeState>('/offices/current/state'),
+  createOfficeZone: (payload: unknown) => apiRequest('/offices/current/zones', { method: 'POST', body: JSON.stringify(payload) }),
+  updateOfficeZone: (zoneId: string, payload: unknown) => apiRequest(`/offices/current/zones/${zoneId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteOfficeZone: (zoneId: string) => apiRequest(`/offices/current/zones/${zoneId}`, { method: 'DELETE' }),
+  createOfficeStation: (payload: unknown) => apiRequest('/offices/current/stations', { method: 'POST', body: JSON.stringify(payload) }),
+  updateOfficeStation: (stationId: string, payload: unknown) => apiRequest(`/offices/current/stations/${stationId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteOfficeStation: (stationId: string) => apiRequest(`/offices/current/stations/${stationId}`, { method: 'DELETE' }),
+  createOfficeAssignment: (payload: unknown) => apiRequest('/offices/current/assignments', { method: 'POST', body: JSON.stringify(payload) }),
+  updateOfficeAssignment: (assignmentId: string, payload: unknown) => apiRequest(`/offices/current/assignments/${assignmentId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteOfficeAssignment: (assignmentId: string) => apiRequest(`/offices/current/assignments/${assignmentId}`, { method: 'DELETE' }),
 
   getSettings: async () => {
     const dashboard = await apiRequest<DashboardData>('/system/dashboard');

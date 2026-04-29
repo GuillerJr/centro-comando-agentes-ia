@@ -43,6 +43,8 @@ type OfficeZoneRecord = {
   grid_y: number;
   grid_w: number;
   grid_h: number;
+  display_order?: number;
+  metadata?: Record<string, unknown>;
 };
 
 type OfficeStationRecord = {
@@ -53,6 +55,16 @@ type OfficeStationRecord = {
   station_type: string;
   status: string;
   capacity: number;
+  metadata?: Record<string, unknown>;
+};
+
+type OfficeConsistencyWarning = {
+  code: string;
+  level: 'warning' | 'error';
+  entityType: 'office' | 'zone' | 'station' | 'assignment';
+  entityId: string | null;
+  title: string;
+  description: string;
 };
 
 type OfficeAssignmentRecord = {
@@ -136,6 +148,9 @@ function buildOfficeLayout(office: OfficeRecord, zoneRows: OfficeZoneRecord[], s
           stationType: string;
           status: string;
           capacity: number;
+          assignmentCount: number;
+          availableCapacity: number;
+          isOverCapacity: boolean;
         }>,
       },
     ]),
@@ -151,6 +166,9 @@ function buildOfficeLayout(office: OfficeRecord, zoneRows: OfficeZoneRecord[], s
       stationType: station.station_type,
       status: station.status,
       capacity: station.capacity,
+      assignmentCount: 0,
+      availableCapacity: station.capacity,
+      isOverCapacity: false,
     });
   }
 
@@ -166,6 +184,232 @@ function buildOfficeLayout(office: OfficeRecord, zoneRows: OfficeZoneRecord[], s
     },
     zones: Array.from(zoneMap.values()),
   };
+}
+
+function zoneOverlaps(a: Pick<OfficeZoneRecord, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>, b: Pick<OfficeZoneRecord, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>) {
+  return a.grid_x < b.grid_x + b.grid_w
+    && a.grid_x + a.grid_w > b.grid_x
+    && a.grid_y < b.grid_y + b.grid_h
+    && a.grid_y + a.grid_h > b.grid_y;
+}
+
+function zoneExceedsOffice(office: OfficeRecord, zone: Pick<OfficeZoneRecord, 'grid_x' | 'grid_y' | 'grid_w' | 'grid_h'>) {
+  return zone.grid_x + zone.grid_w > office.grid_columns || zone.grid_y + zone.grid_h > office.grid_rows;
+}
+
+function buildOfficeWarnings(office: OfficeRecord, zones: OfficeZoneRecord[], stations: OfficeStationRecord[], assignments: OfficeAssignmentRecord[]) {
+  const warnings: OfficeConsistencyWarning[] = [];
+  const assignmentCountByStation = new Map<string, number>();
+
+  for (const assignment of assignments) {
+    assignmentCountByStation.set(assignment.station_id, (assignmentCountByStation.get(assignment.station_id) ?? 0) + 1);
+
+    if (assignment.agent_status !== 'active') {
+      warnings.push({
+        code: 'assignment_agent_inactive',
+        level: 'warning',
+        entityType: 'assignment',
+        entityId: assignment.id,
+        title: 'Asignación con agente no activo',
+        description: `${assignment.agent_name} sigue asignado aunque su estado es ${assignment.agent_status}.`,
+      });
+    }
+  }
+
+  for (const zone of zones) {
+    if (zoneExceedsOffice(office, zone)) {
+      warnings.push({
+        code: 'zone_out_of_bounds',
+        level: 'error',
+        entityType: 'zone',
+        entityId: zone.id,
+        title: 'Zona fuera del plano',
+        description: `${zone.name} supera la grilla ${office.grid_columns}x${office.grid_rows} de la oficina.`,
+      });
+    }
+  }
+
+  for (let index = 0; index < zones.length; index += 1) {
+    for (let nextIndex = index + 1; nextIndex < zones.length; nextIndex += 1) {
+      const current = zones[index];
+      const next = zones[nextIndex];
+      if (zoneOverlaps(current, next)) {
+        warnings.push({
+          code: 'zone_overlap',
+          level: 'error',
+          entityType: 'zone',
+          entityId: current.id,
+          title: 'Solape entre zonas',
+          description: `${current.name} y ${next.name} ocupan la misma superficie del layout.`,
+        });
+      }
+    }
+  }
+
+  for (const station of stations) {
+    const assignmentCount = assignmentCountByStation.get(station.id) ?? 0;
+    if (assignmentCount > station.capacity) {
+      warnings.push({
+        code: 'station_over_capacity',
+        level: 'error',
+        entityType: 'station',
+        entityId: station.id,
+        title: 'Estación sobreocupada',
+        description: `${station.name} tiene ${assignmentCount} asignaciones para una capacidad de ${station.capacity}.`,
+      });
+    }
+    if (assignmentCount > 0 && station.status !== 'occupied') {
+      warnings.push({
+        code: 'station_status_mismatch',
+        level: 'warning',
+        entityType: 'station',
+        entityId: station.id,
+        title: 'Estado de estación inconsistente',
+        description: `${station.name} tiene presencia activa pero su estado visible es ${station.status}.`,
+      });
+    }
+    if (assignmentCount === 0 && station.status === 'occupied') {
+      warnings.push({
+        code: 'station_marked_occupied_without_assignments',
+        level: 'warning',
+        entityType: 'station',
+        entityId: station.id,
+        title: 'Estación ocupada sin presencia',
+        description: `${station.name} figura ocupada pero no tiene asignaciones activas.`,
+      });
+    }
+    if (assignmentCount > 0 && station.status === 'maintenance') {
+      warnings.push({
+        code: 'station_in_maintenance_with_assignments',
+        level: 'error',
+        entityType: 'station',
+        entityId: station.id,
+        title: 'Estación en mantenimiento con asignaciones',
+        description: `${station.name} no debería tener agentes asignados mientras está en mantenimiento.`,
+      });
+    }
+  }
+
+  return { warnings, assignmentCountByStation };
+}
+
+async function getCurrentOfficeContext() {
+  const office = requireOffice((await commandCenterRepository.getDefaultOffice()) as OfficeRecord | null);
+  const [zones, stations, assignments] = await Promise.all([
+    commandCenterRepository.getOfficeZones(office.id),
+    commandCenterRepository.getOfficeStations(office.id),
+    commandCenterRepository.getOfficeAssignments(office.id),
+  ]);
+
+  return {
+    office,
+    zones: zones as OfficeZoneRecord[],
+    stations: stations as OfficeStationRecord[],
+    assignments: assignments as OfficeAssignmentRecord[],
+  };
+}
+
+function ensureZoneInOffice(zones: OfficeZoneRecord[], zoneId: string) {
+  const zone = zones.find((item) => item.id === zoneId) ?? null;
+  if (!zone) throw new AppError('Office zone not found', 404);
+  return zone;
+}
+
+function ensureStationInOffice(stations: OfficeStationRecord[], stationId: string) {
+  const station = stations.find((item) => item.id === stationId) ?? null;
+  if (!station) throw new AppError('Office station not found', 404);
+  return station;
+}
+
+function ensureAssignmentInOffice(assignments: OfficeAssignmentRecord[], assignmentId: string) {
+  const assignment = assignments.find((item) => item.id === assignmentId) ?? null;
+  if (!assignment) throw new AppError('Office assignment not found', 404);
+  return assignment;
+}
+
+function validateZonePayload(office: OfficeRecord, zones: OfficeZoneRecord[], payload: any, excludeZoneId?: string) {
+  if (zoneExceedsOffice(office, payload)) {
+    throw new AppError(`Zone must fit inside office grid ${office.grid_columns}x${office.grid_rows}`, 400);
+  }
+
+  const duplicate = zones.find((zone) => zone.id !== excludeZoneId && zone.code.toLowerCase() === payload.code.toLowerCase());
+  if (duplicate) {
+    throw new AppError(`Zone code already exists in office: ${duplicate.code}`, 400);
+  }
+
+  const collision = zones.find((zone) => zone.id !== excludeZoneId && zoneOverlaps(zone, payload));
+  if (collision) {
+    throw new AppError(`Zone overlaps with ${collision.name}`, 400);
+  }
+}
+
+function validateStationPayload(stations: OfficeStationRecord[], assignments: OfficeAssignmentRecord[], payload: any, stationId?: string) {
+  const currentAssignments = assignments.filter((assignment) => assignment.station_id === (stationId ?? payload.stationId)).length;
+  if (payload.capacity < currentAssignments) {
+    throw new AppError(`Station capacity cannot be lower than ${currentAssignments} active assignments`, 400);
+  }
+  if (currentAssignments > 0 && payload.status !== 'occupied') {
+    throw new AppError('Stations with active assignments must remain occupied', 400);
+  }
+  if (currentAssignments === 0 && payload.status === 'occupied') {
+    throw new AppError('Occupied stations require at least one active assignment', 400);
+  }
+
+  const duplicate = stations.find((station) => station.id !== stationId && station.zone_id === payload.zoneId && station.code.toLowerCase() === payload.code.toLowerCase());
+  if (duplicate) {
+    throw new AppError(`Station code already exists in this zone: ${duplicate.code}`, 400);
+  }
+}
+
+async function validateAssignmentPayload(officeId: string, stations: OfficeStationRecord[], assignments: OfficeAssignmentRecord[], payload: any, assignmentId?: string) {
+  const station = ensureStationInOffice(stations, payload.stationId);
+  if (station.status === 'maintenance') {
+    throw new AppError('Cannot assign agents to a station in maintenance', 400);
+  }
+
+  const agent = await commandCenterRepository.getAgentById(payload.agentId);
+  if (!agent) throw new AppError('Agent not found', 404);
+  if (agent.status !== 'active') {
+    throw new AppError('Only active agents can be assigned to the office', 400);
+  }
+
+  if (payload.taskId) {
+    const task = await commandCenterRepository.getTaskById(payload.taskId);
+    if (!task) throw new AppError('Task not found', 404);
+    if (['completed', 'cancelled', 'failed'].includes(task.status)) {
+      throw new AppError('Cannot link terminal tasks to live office assignments', 400);
+    }
+  }
+
+  const stationAssignments = assignments.filter((assignment) => assignment.station_id === station.id && assignment.id !== assignmentId);
+  if (stationAssignments.length >= station.capacity) {
+    throw new AppError(`Station ${station.name} is already at full capacity`, 400);
+  }
+
+  const duplicateAgent = assignments.find((assignment) => assignment.agent_id === payload.agentId && assignment.id !== assignmentId);
+  if (duplicateAgent) {
+    throw new AppError('Agent already has an active office assignment', 400);
+  }
+
+  if (payload.isPrimary) {
+    const primaryCollision = stationAssignments.find((assignment) => assignment.is_primary);
+    if (primaryCollision) {
+      throw new AppError(`Station ${station.name} already has a primary assignment`, 400);
+    }
+  }
+
+  return { station, officeId };
+}
+
+async function syncStationOccupancy(stationId: string, assignments: OfficeAssignmentRecord[], currentStationStatus?: string) {
+  const count = assignments.filter((assignment) => assignment.station_id === stationId).length;
+  if (count > 0) {
+    await commandCenterRepository.updateOfficeStationStatus(stationId, 'occupied');
+    return;
+  }
+  if (currentStationStatus === 'occupied') {
+    await commandCenterRepository.updateOfficeStationStatus(stationId, 'available');
+  }
 }
 
 export const commandCenterService = {
@@ -380,27 +624,20 @@ export const commandCenterService = {
     };
   },
   async getCurrentOfficeLayout() {
-    const office = requireOffice((await commandCenterRepository.getDefaultOffice()) as OfficeRecord | null);
-    const [zones, stations] = await Promise.all([
-      commandCenterRepository.getOfficeZones(office.id),
-      commandCenterRepository.getOfficeStations(office.id),
-    ]);
-
-    return buildOfficeLayout(office, zones as OfficeZoneRecord[], stations as OfficeStationRecord[]);
+    const { office, zones, stations } = await getCurrentOfficeContext();
+    return buildOfficeLayout(office, zones, stations);
   },
   async getCurrentOfficeState() {
-    const office = requireOffice((await commandCenterRepository.getDefaultOffice()) as OfficeRecord | null);
-    const [zones, stations, assignments, runs, approvals, skills, tasks] = await Promise.all([
-      commandCenterRepository.getOfficeZones(office.id),
-      commandCenterRepository.getOfficeStations(office.id),
-      commandCenterRepository.getOfficeAssignments(office.id),
+    const { office, zones, stations, assignments } = await getCurrentOfficeContext();
+    const [runs, approvals, skills, tasks] = await Promise.all([
       commandCenterRepository.getRuns(),
       commandCenterRepository.getApprovals(),
       commandCenterRepository.getSkills(),
       commandCenterRepository.getTasks(),
     ]);
 
-    const layout = buildOfficeLayout(office, zones as OfficeZoneRecord[], stations as OfficeStationRecord[]);
+    const layout = buildOfficeLayout(office, zones, stations);
+    const { warnings, assignmentCountByStation } = buildOfficeWarnings(office, zones, stations, assignments);
     const zoneMap = new Map(
       layout.zones.map((zone) => [
         zone.id,
@@ -461,9 +698,16 @@ export const commandCenterService = {
       ]),
     );
 
-    const stationAssignments = new Map<string, number>();
+    for (const zone of layout.zones) {
+      for (const station of zone.stations) {
+        const assignmentCount = assignmentCountByStation.get(station.id) ?? 0;
+        station.assignmentCount = assignmentCount;
+        station.availableCapacity = Math.max(station.capacity - assignmentCount, 0);
+        station.isOverCapacity = assignmentCount > station.capacity;
+      }
+    }
 
-    for (const assignment of assignments as OfficeAssignmentRecord[]) {
+    for (const assignment of assignments) {
       const zone = zoneMap.get(assignment.zone_id);
       if (!zone) continue;
 
@@ -508,15 +752,13 @@ export const commandCenterService = {
         task,
       });
 
-      stationAssignments.set(assignment.station_id, (stationAssignments.get(assignment.station_id) ?? 0) + 1);
-
       if (task && !zone.tasks.some((item) => item.id === task.id)) {
         zone.tasks.push(task);
       }
     }
 
     const occupiedStations = layout.zones.reduce(
-      (total, zone) => total + zone.stations.filter((station) => (stationAssignments.get(station.id) ?? 0) > 0).length,
+      (total, zone) => total + zone.stations.filter((station) => station.assignmentCount > 0).length,
       0,
     );
     const activeRuns = (runs as Array<{ status: string }>).filter((run) => run.status === 'running');
@@ -539,6 +781,100 @@ export const commandCenterService = {
       pendingApprovals,
       recentTasks,
       activeSkills: (skills as Array<{ status: string }>).filter((skill) => skill.status === 'active'),
+      warnings,
     };
+  },
+  async createOfficeZone(payload: any) {
+    const { office, zones } = await getCurrentOfficeContext();
+    validateZonePayload(office, zones, payload);
+    const created = await commandCenterRepository.createOfficeZone({ ...payload, officeId: office.id });
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_zone_created', moduleName: 'offices', payloadSummary: { zoneId: created.id, officeId: office.id }, resultStatus: 'success', severity: 'info' });
+    return created;
+  },
+  async updateOfficeZone(zoneId: string, payload: any) {
+    const { office, zones } = await getCurrentOfficeContext();
+    ensureZoneInOffice(zones, zoneId);
+    validateZonePayload(office, zones, payload, zoneId);
+    const updated = await commandCenterRepository.updateOfficeZone(zoneId, payload);
+    if (!updated) throw new AppError('Office zone not found', 404);
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_zone_updated', moduleName: 'offices', payloadSummary: { zoneId }, resultStatus: 'success', severity: 'info' });
+    return updated;
+  },
+  async deleteOfficeZone(zoneId: string) {
+    const { zones, stations } = await getCurrentOfficeContext();
+    const zone = ensureZoneInOffice(zones, zoneId);
+    if (stations.some((station) => station.zone_id === zoneId)) {
+      throw new AppError('Cannot delete a zone while it still has stations', 400);
+    }
+    const deleted = await commandCenterRepository.deleteOfficeZone(zoneId);
+    if (!deleted) throw new AppError('Office zone not found', 404);
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_zone_deleted', moduleName: 'offices', payloadSummary: { zoneId, zoneCode: zone.code }, resultStatus: 'success', severity: 'warning' });
+    return deleted;
+  },
+  async createOfficeStation(payload: any) {
+    const { zones, stations, assignments } = await getCurrentOfficeContext();
+    ensureZoneInOffice(zones, payload.zoneId);
+    validateStationPayload(stations, assignments, payload);
+    const created = await commandCenterRepository.createOfficeStation(payload);
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_station_created', moduleName: 'offices', payloadSummary: { stationId: created.id, zoneId: payload.zoneId }, resultStatus: 'success', severity: 'info' });
+    return created;
+  },
+  async updateOfficeStation(stationId: string, payload: any) {
+    const { zones, stations, assignments } = await getCurrentOfficeContext();
+    ensureZoneInOffice(zones, payload.zoneId);
+    ensureStationInOffice(stations, stationId);
+    validateStationPayload(stations, assignments, payload, stationId);
+    const updated = await commandCenterRepository.updateOfficeStation(stationId, payload);
+    if (!updated) throw new AppError('Office station not found', 404);
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_station_updated', moduleName: 'offices', payloadSummary: { stationId }, resultStatus: 'success', severity: 'info' });
+    return updated;
+  },
+  async deleteOfficeStation(stationId: string) {
+    const { stations, assignments } = await getCurrentOfficeContext();
+    const station = ensureStationInOffice(stations, stationId);
+    if (assignments.some((assignment) => assignment.station_id === stationId)) {
+      throw new AppError('Cannot delete a station while it still has assignments', 400);
+    }
+    const deleted = await commandCenterRepository.deleteOfficeStation(stationId);
+    if (!deleted) throw new AppError('Office station not found', 404);
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_station_deleted', moduleName: 'offices', payloadSummary: { stationId, stationCode: station.code }, resultStatus: 'success', severity: 'warning' });
+    return deleted;
+  },
+  async createOfficeAssignment(payload: any) {
+    const { office, stations, assignments } = await getCurrentOfficeContext();
+    const { station } = await validateAssignmentPayload(office.id, stations, assignments, payload);
+    const created = await commandCenterRepository.createOfficeAssignment(payload);
+    const nextAssignments = [...assignments, { ...created, station_id: payload.stationId } as OfficeAssignmentRecord];
+    await syncStationOccupancy(station.id, nextAssignments, station.status);
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_assignment_created', moduleName: 'offices', payloadSummary: { assignmentId: created.id, stationId: payload.stationId, agentId: payload.agentId }, resultStatus: 'success', severity: 'info' });
+    return created;
+  },
+  async updateOfficeAssignment(assignmentId: string, payload: any) {
+    const { office, stations, assignments } = await getCurrentOfficeContext();
+    const current = ensureAssignmentInOffice(assignments, assignmentId);
+    const previousStation = ensureStationInOffice(stations, current.station_id);
+    const { station } = await validateAssignmentPayload(office.id, stations, assignments, payload, assignmentId);
+    const updated = await commandCenterRepository.updateOfficeAssignment(assignmentId, payload);
+    if (!updated) throw new AppError('Office assignment not found', 404);
+
+    const nextAssignments = assignments.map((assignment) => (assignment.id === assignmentId ? { ...assignment, station_id: payload.stationId, agent_id: payload.agentId, is_primary: payload.isPrimary } : assignment));
+    await syncStationOccupancy(station.id, nextAssignments as OfficeAssignmentRecord[], station.status);
+    if (previousStation.id !== station.id) {
+      await syncStationOccupancy(previousStation.id, nextAssignments as OfficeAssignmentRecord[], previousStation.status);
+    }
+
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_assignment_updated', moduleName: 'offices', payloadSummary: { assignmentId, stationId: payload.stationId, agentId: payload.agentId }, resultStatus: 'success', severity: 'info' });
+    return updated;
+  },
+  async deleteOfficeAssignment(assignmentId: string) {
+    const { stations, assignments } = await getCurrentOfficeContext();
+    const current = ensureAssignmentInOffice(assignments, assignmentId);
+    const station = ensureStationInOffice(stations, current.station_id);
+    const deleted = await commandCenterRepository.deleteOfficeAssignment(assignmentId);
+    if (!deleted) throw new AppError('Office assignment not found', 404);
+    const nextAssignments = assignments.filter((assignment) => assignment.id !== assignmentId);
+    await syncStationOccupancy(station.id, nextAssignments, station.status);
+    await commandCenterRepository.createAuditLog({ actor: 'system', action: 'office_assignment_deleted', moduleName: 'offices', payloadSummary: { assignmentId, stationId: station.id, agentId: current.agent_id }, resultStatus: 'success', severity: 'warning' });
+    return deleted;
   },
 };

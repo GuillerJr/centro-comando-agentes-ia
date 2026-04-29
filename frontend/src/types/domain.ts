@@ -30,11 +30,20 @@ export type SystemSetting = { id: string; setting_key: string; setting_value: un
 export type ConsoleSnapshot = { availableAgents: Array<{ name: string; type: string; status: string }>; availableSkills: Array<{ canonicalName: string; type: string }>; logs: Array<{ timestamp: string; level: string; message: string }>; commandWhitelist: string[]; mode: string; };
 
 export type Office = { id: string; slug: string; name: string; description: string; gridColumns: number; gridRows: number; metadata?: Record<string, unknown>; };
-export type OfficeStation = { id: string; code: string; name: string; stationType: string; status: string; capacity: number; };
+export type OfficeStation = { id: string; code: string; name: string; stationType: string; status: string; capacity: number; assignmentCount: number; availableCapacity: number; isOverCapacity: boolean; };
 export type OfficeZoneTask = { id: string; title: string; description: string; priority: string; task_type: string; status: string; result_summary?: string | null; logs?: string | null; created_by?: string | null; metadata?: Record<string, unknown>; created_at: string; started_at?: string | null; completed_at?: string | null; };
 export type OfficeZoneAgent = { assignmentId: string; assignmentRole: string; presenceStatus: string; stationId: string; stationName: string; notes?: string | null; agent: Agent; task?: OfficeZoneTask | null; };
 export type OfficeZone = { id: string; code: string; name: string; subtitle: string; zoneType: string; accent: string; x: number; y: number; w: number; h: number; stations: OfficeStation[]; agents?: OfficeZoneAgent[]; tasks?: OfficeZoneTask[]; };
 export type OfficeLayout = { office: Office; zones: OfficeZone[]; };
+export type OfficeConsistencyWarning = {
+  code: string;
+  level: 'warning' | 'error';
+  entityType: 'office' | 'zone' | 'station' | 'assignment';
+  entityId: string | null;
+  title: string;
+  description: string;
+};
+
 export type OfficeState = {
   office: Office;
   zones: Array<OfficeZone & { agents: OfficeZoneAgent[]; tasks: OfficeZoneTask[] }>;
@@ -51,4 +60,5 @@ export type OfficeState = {
   pendingApprovals: Approval[];
   recentTasks: Task[];
   activeSkills: Skill[];
+  warnings: OfficeConsistencyWarning[];
 };

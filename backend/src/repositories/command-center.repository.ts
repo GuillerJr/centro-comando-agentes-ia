@@ -179,6 +179,31 @@ export const commandCenterRepository = {
     const result = await pool.query('SELECT * FROM ai_office_zones WHERE office_id = $1 ORDER BY display_order ASC, created_at ASC', [officeId]);
     return result.rows;
   },
+  async getOfficeZoneById(zoneId: string) {
+    const result = await pool.query('SELECT * FROM ai_office_zones WHERE id = $1', [zoneId]);
+    return result.rows[0] ?? null;
+  },
+  async createOfficeZone(payload: any) {
+    const result = await pool.query(
+      `INSERT INTO ai_office_zones (office_id, code, name, subtitle, zone_type, accent, grid_x, grid_y, grid_w, grid_h, display_order, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [payload.officeId, payload.code, payload.name, payload.subtitle, payload.zoneType, payload.accent, payload.gridX, payload.gridY, payload.gridW, payload.gridH, payload.displayOrder, JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0];
+  },
+  async updateOfficeZone(zoneId: string, payload: any) {
+    const result = await pool.query(
+      `UPDATE ai_office_zones
+       SET code=$2, name=$3, subtitle=$4, zone_type=$5, accent=$6, grid_x=$7, grid_y=$8, grid_w=$9, grid_h=$10, display_order=$11, metadata=$12
+       WHERE id=$1 RETURNING *`,
+      [zoneId, payload.code, payload.name, payload.subtitle, payload.zoneType, payload.accent, payload.gridX, payload.gridY, payload.gridW, payload.gridH, payload.displayOrder, JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0] ?? null;
+  },
+  async deleteOfficeZone(zoneId: string) {
+    const result = await pool.query('DELETE FROM ai_office_zones WHERE id = $1 RETURNING *', [zoneId]);
+    return result.rows[0] ?? null;
+  },
   async getOfficeStations(officeId: string) {
     const result = await pool.query(
       `SELECT stations.*
@@ -189,6 +214,35 @@ export const commandCenterRepository = {
       [officeId],
     );
     return result.rows;
+  },
+  async getOfficeStationById(stationId: string) {
+    const result = await pool.query('SELECT * FROM ai_office_stations WHERE id = $1', [stationId]);
+    return result.rows[0] ?? null;
+  },
+  async createOfficeStation(payload: any) {
+    const result = await pool.query(
+      `INSERT INTO ai_office_stations (zone_id, code, name, station_type, status, capacity, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [payload.zoneId, payload.code, payload.name, payload.stationType, payload.status, payload.capacity, JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0];
+  },
+  async updateOfficeStation(stationId: string, payload: any) {
+    const result = await pool.query(
+      `UPDATE ai_office_stations
+       SET zone_id=$2, code=$3, name=$4, station_type=$5, status=$6, capacity=$7, metadata=$8
+       WHERE id=$1 RETURNING *`,
+      [stationId, payload.zoneId, payload.code, payload.name, payload.stationType, payload.status, payload.capacity, JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0] ?? null;
+  },
+  async updateOfficeStationStatus(stationId: string, status: string) {
+    const result = await pool.query('UPDATE ai_office_stations SET status = $2 WHERE id = $1 RETURNING *', [stationId, status]);
+    return result.rows[0] ?? null;
+  },
+  async deleteOfficeStation(stationId: string) {
+    const result = await pool.query('DELETE FROM ai_office_stations WHERE id = $1 RETURNING *', [stationId]);
+    return result.rows[0] ?? null;
   },
   async getOfficeAssignments(officeId: string) {
     const result = await pool.query(
@@ -236,6 +290,31 @@ export const commandCenterRepository = {
       [officeId],
     );
     return result.rows;
+  },
+  async getOfficeAssignmentById(assignmentId: string) {
+    const result = await pool.query('SELECT * FROM ai_office_agent_assignments WHERE id = $1', [assignmentId]);
+    return result.rows[0] ?? null;
+  },
+  async createOfficeAssignment(payload: any) {
+    const result = await pool.query(
+      `INSERT INTO ai_office_agent_assignments (station_id, agent_id, task_id, assignment_role, presence_status, is_primary, notes, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [payload.stationId, payload.agentId, payload.taskId, payload.assignmentRole, payload.presenceStatus, payload.isPrimary, payload.notes ?? null, JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0];
+  },
+  async updateOfficeAssignment(assignmentId: string, payload: any) {
+    const result = await pool.query(
+      `UPDATE ai_office_agent_assignments
+       SET station_id=$2, agent_id=$3, task_id=$4, assignment_role=$5, presence_status=$6, is_primary=$7, notes=$8, metadata=$9
+       WHERE id=$1 RETURNING *`,
+      [assignmentId, payload.stationId, payload.agentId, payload.taskId, payload.assignmentRole, payload.presenceStatus, payload.isPrimary, payload.notes ?? null, JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0] ?? null;
+  },
+  async deleteOfficeAssignment(assignmentId: string) {
+    const result = await pool.query('DELETE FROM ai_office_agent_assignments WHERE id = $1 RETURNING *', [assignmentId]);
+    return result.rows[0] ?? null;
   },
   async getDashboardMetrics() {
     const result = await pool.query(`

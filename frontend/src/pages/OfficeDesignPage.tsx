@@ -1,25 +1,48 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, CheckCircle2, Clock3, ShieldAlert, Sparkles, Waypoints } from 'lucide-react';
+import { Bot, CheckCircle2, Clock3, Plus, ShieldAlert, Sparkles, Trash2, Waypoints } from 'lucide-react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
-import { EmptyState, ErrorState, formatDateTime, formatDisplayText, LoadingState, MetricPill, PageShell, SectionCard, StatusBadge } from '../components/ui';
-import type { OfficeState } from '../types/domain';
+import { Input } from '../components/input';
+import { Modal } from '../components/modal';
+import { ActionFeedback, EmptyState, ErrorState, FormField, formatDateTime, formatDisplayText, LoadingState, MetricPill, PageShell, SectionCard, StatusBadge } from '../components/ui';
+import type { Agent, OfficeState, Task } from '../types/domain';
 
-function roomTone(accent: string) {
-  return accent || 'from-slate-500/40 to-slate-700/20';
-}
+type ZoneForm = { code: string; name: string; subtitle: string; zoneType: string; accent: string; gridX: number; gridY: number; gridW: number; gridH: number; displayOrder: number };
+type StationForm = { zoneId: string; code: string; name: string; stationType: string; status: string; capacity: number };
+type AssignmentForm = { stationId: string; agentId: string; taskId: string; assignmentRole: string; presenceStatus: string; isPrimary: boolean; notes: string };
+
+const defaultZoneForm: ZoneForm = { code: '', name: '', subtitle: '', zoneType: 'control', accent: 'from-sky-500/60 to-cyan-500/30', gridX: 1, gridY: 1, gridW: 4, gridH: 3, displayOrder: 0 };
+const defaultStationForm: StationForm = { zoneId: '', code: '', name: '', stationType: 'desk', status: 'available', capacity: 1 };
+const defaultAssignmentForm: AssignmentForm = { stationId: '', agentId: '', taskId: '', assignmentRole: 'responsable', presenceStatus: 'present', isPrimary: true, notes: '' };
+
+const roomTone = (accent: string) => accent || 'from-slate-500/40 to-slate-700/20';
 
 export function OfficeDesignPage() {
   const [state, setState] = useState<OfficeState | null>(null);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [zoneModalOpen, setZoneModalOpen] = useState(false);
+  const [stationModalOpen, setStationModalOpen] = useState(false);
+  const [assignmentModalOpen, setAssignmentModalOpen] = useState(false);
+  const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
+  const [editingStationId, setEditingStationId] = useState<string | null>(null);
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
+  const [zoneForm, setZoneForm] = useState<ZoneForm>(defaultZoneForm);
+  const [stationForm, setStationForm] = useState<StationForm>(defaultStationForm);
+  const [assignmentForm, setAssignmentForm] = useState<AssignmentForm>(defaultAssignmentForm);
 
   const loadOffice = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await commandCenterApi.getCurrentOfficeState();
-      setState(data);
+      const [officeState, availableAgents, availableTasks] = await Promise.all([commandCenterApi.getCurrentOfficeState(), commandCenterApi.getAgents(), commandCenterApi.getTasks()]);
+      setState(officeState);
+      setAgents(availableAgents.filter((agent) => agent.status === 'active'));
+      setTasks(availableTasks.filter((task) => !['completed', 'cancelled', 'failed'].includes(task.status)));
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'No se pudo cargar la oficina digital.');
     } finally {
@@ -27,249 +50,78 @@ export function OfficeDesignPage() {
     }
   };
 
-  useEffect(() => {
-    void loadOffice();
-  }, []);
+  useEffect(() => { void loadOffice(); }, []);
 
   const totalAssignments = useMemo(() => state?.zones.reduce((sum, zone) => sum + zone.agents.length, 0) ?? 0, [state]);
+  const allStations = useMemo(() => state?.zones.flatMap((zone) => zone.stations.map((station) => ({ ...station, zoneId: zone.id, zoneName: zone.name }))) ?? [], [state]);
+  const allAssignments = useMemo(() => state?.zones.flatMap((zone) => zone.agents.map((assignment) => ({ ...assignment, zoneId: zone.id, zoneName: zone.name }))) ?? [], [state]);
 
-  if (error) return <ErrorState message={error} action={<Button onClick={() => void loadOffice()}>Reintentar</Button>} />;
+  const resetZoneForm = () => { setEditingZoneId(null); setZoneForm(defaultZoneForm); setZoneModalOpen(false); };
+  const resetStationForm = () => { setEditingStationId(null); setStationForm(defaultStationForm); setStationModalOpen(false); };
+  const resetAssignmentForm = () => { setEditingAssignmentId(null); setAssignmentForm(defaultAssignmentForm); setAssignmentModalOpen(false); };
+
+  const submitZone = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      setIsSubmitting(true); setFeedback(null);
+      if (editingZoneId) await commandCenterApi.updateOfficeZone(editingZoneId, { ...zoneForm, metadata: {} });
+      else await commandCenterApi.createOfficeZone({ ...zoneForm, metadata: {} });
+      setFeedback(editingZoneId ? 'La zona se actualizó correctamente.' : 'La zona se creó correctamente.');
+      resetZoneForm();
+      await loadOffice();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo guardar la zona.'); } finally { setIsSubmitting(false); }
+  };
+
+  const submitStation = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      setIsSubmitting(true); setFeedback(null);
+      if (editingStationId) await commandCenterApi.updateOfficeStation(editingStationId, { ...stationForm, metadata: {} });
+      else await commandCenterApi.createOfficeStation({ ...stationForm, metadata: {} });
+      setFeedback(editingStationId ? 'La estación se actualizó correctamente.' : 'La estación se creó correctamente.');
+      resetStationForm();
+      await loadOffice();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo guardar la estación.'); } finally { setIsSubmitting(false); }
+  };
+
+  const submitAssignment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    try {
+      setIsSubmitting(true); setFeedback(null);
+      const payload = { ...assignmentForm, taskId: assignmentForm.taskId || null, notes: assignmentForm.notes || null, metadata: {} };
+      if (editingAssignmentId) await commandCenterApi.updateOfficeAssignment(editingAssignmentId, payload);
+      else await commandCenterApi.createOfficeAssignment(payload);
+      setFeedback(editingAssignmentId ? 'La asignación se actualizó correctamente.' : 'La asignación se creó correctamente.');
+      resetAssignmentForm();
+      await loadOffice();
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'No se pudo guardar la asignación.'); } finally { setIsSubmitting(false); }
+  };
+
+  if (error && !state) return <ErrorState message={error} action={<Button onClick={() => void loadOffice()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando oficina digital..." />;
   if (!state) return <EmptyState title="Sin oficina configurada" description="Todavía no existe un snapshot espacial disponible para mostrar." action={<Button onClick={() => void loadOffice()}>Actualizar</Button>} />;
 
-  return (
-    <PageShell
-      title="Diseño de oficina"
-      description="Mapa operativo persistente del centro de comando. Ahora la oficina ya no es solo una interpretación visual, sino un dominio espacial real con zonas, estaciones y asignaciones vivas."
-      action={<MetricPill label="Oficina" value={state.office.name} tone="info" />}
-    >
-      <div className="metric-grid xl:grid-cols-4">
-        <div className="panel-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Zonas activas</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{state.metrics.zones}</p>
-          <p className="mt-2 text-sm text-zinc-400">Salas persistidas en el backend espacial.</p>
-        </div>
-        <div className="panel-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Estaciones ocupadas</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{state.metrics.occupiedStations}/{state.metrics.stations}</p>
-          <p className="mt-2 text-sm text-zinc-400">Puestos con presencia real de agentes asignados.</p>
-        </div>
-        <div className="panel-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Agentes presentes</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{state.metrics.activeAgents}</p>
-          <p className="mt-2 text-sm text-zinc-400">Personal activo desplegado en la oficina digital.</p>
-        </div>
-        <div className="panel-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Bloqueos humanos</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{state.metrics.pendingApprovals}</p>
-          <p className="mt-2 text-sm text-zinc-400">Aprobaciones que frenan el flujo automático.</p>
-        </div>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1.16fr_0.84fr]">
-        <SectionCard
-          title="Plano espacial persistente"
-          subtitle="Cada sala y estación de este plano vive en backend. La vista ya no se deduce solo en frontend, sino que responde a un layout real del producto."
-          action={<MetricPill label="Asignaciones" value={String(totalAssignments)} tone="success" />}
-        >
-          <div className="office-board">
-            <div className="office-board__grid" />
-            {state.zones.map((zone) => (
-              <section
-                key={zone.id}
-                className={`office-room bg-gradient-to-br ${roomTone(zone.accent)}`}
-                style={{ gridColumn: `${zone.x} / span ${zone.w}`, gridRow: `${zone.y} / span ${zone.h}` }}
-              >
-                <div className="office-room__header">
-                  <div>
-                    <p className="office-room__title">{zone.name}</p>
-                    <p className="office-room__subtitle">{zone.subtitle}</p>
-                  </div>
-                  <span className="office-room__badge">{zone.stations.length} estaciones</span>
-                </div>
-
-                <div className="grid gap-2">
-                  {zone.stations.slice(0, 4).map((station) => {
-                    const stationed = zone.agents.filter((item) => item.stationId === station.id);
-                    return (
-                      <div key={station.id} className="rounded-2xl border border-white/10 bg-black/15 p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-white/90">{station.name}</p>
-                            <p className="mt-1 text-[11px] text-zinc-300">{formatDisplayText(station.stationType)}</p>
-                          </div>
-                          <StatusBadge status={station.status} />
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {stationed.length > 0 ? (
-                            stationed.slice(0, 3).map((assignment) => (
-                              <div key={assignment.assignmentId} className="office-room__task-chip">
-                                <Bot className="h-3.5 w-3.5" />
-                                <span>{assignment.agent.name}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="office-room__task-chip opacity-70">
-                              <Clock3 className="h-3.5 w-3.5" />
-                              <span>Sin presencia activa</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="office-room__tasks">
-                  {zone.tasks.slice(0, 2).map((task) => (
-                    <div key={task.id} className="office-room__task-chip">
-                      <Waypoints className="h-3.5 w-3.5" />
-                      <span>{task.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ))}
-            <div className="office-flow office-flow--one" />
-            <div className="office-flow office-flow--two" />
-            <div className="office-flow office-flow--three" />
-          </div>
-        </SectionCard>
-
-        <div className="space-y-5">
-          <SectionCard title="Pulso operativo" subtitle="Lo que está ocurriendo ahora mismo dentro del mapa espacial.">
-            <div className="space-y-3">
-              <div className="surface-muted flex items-start gap-3 p-4">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Trabajo asignado</p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">{state.metrics.assignedTasks} tareas están conectadas directamente a zonas y estaciones persistentes.</p>
-                </div>
-              </div>
-              <div className="surface-muted flex items-start gap-3 p-4">
-                <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-300" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Aprobaciones pendientes</p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">{state.pendingApprovals.length > 0 ? `${state.pendingApprovals.length} decisiones humanas siguen abiertas.` : 'No hay bloqueos humanos pendientes ahora mismo.'}</p>
-                </div>
-              </div>
-              <div className="surface-muted flex items-start gap-3 p-4">
-                <Sparkles className="mt-0.5 h-5 w-5 text-fuchsia-300" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Capacidades activas</p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">{state.activeSkills.length} skills activas alimentan la operación de la oficina.</p>
-                </div>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="Tareas vivas" subtitle="Flujo operativo reciente vinculado a la estructura espacial de la oficina.">
-            <div className="space-y-3">
-              {state.recentTasks.length === 0 ? (
-                <EmptyState title="Sin movimiento reciente" description="Todavía no hay tareas recientes enlazadas al pulso de la oficina." />
-              ) : (
-                state.recentTasks.map((task) => (
-                  <div key={task.id} className="surface-muted p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-white">{task.title}</p>
-                        <p className="mt-1 text-sm leading-6 text-zinc-400">{task.description}</p>
-                      </div>
-                      <StatusBadge status={task.status} />
-                    </div>
-                    <div className="mt-3 flex flex-col gap-1 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
-                      <span>{formatDisplayText(task.task_type)}</span>
-                      <span>{formatDateTime(task.started_at ?? task.created_at)}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </SectionCard>
-        </div>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <SectionCard title="Presencia por zona" subtitle="Asignaciones actuales de agentes a estaciones dentro de la oficina persistente.">
-          <div className="space-y-3">
-            {state.zones.map((zone) => (
-              <div key={zone.id} className="surface-muted p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-white">{zone.name}</p>
-                    <p className="mt-1 text-sm text-zinc-400">{zone.agents.length} agentes, {zone.tasks.length} tareas enlazadas</p>
-                  </div>
-                  <StatusBadge status={zone.zoneType} />
-                </div>
-                <div className="mt-3 grid gap-2 md:grid-cols-2">
-                  {zone.agents.length > 0 ? (
-                    zone.agents.slice(0, 4).map((assignment) => (
-                      <div key={assignment.assignmentId} className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-white">{assignment.agent.name}</p>
-                            <p className="mt-1 text-xs text-zinc-400">{assignment.stationName} · {formatDisplayText(assignment.assignmentRole)}</p>
-                          </div>
-                          <StatusBadge status={assignment.presenceStatus} />
-                        </div>
-                        {assignment.task ? <p className="mt-2 text-xs leading-5 text-zinc-400">Trabajando en: {assignment.task.title}</p> : <p className="mt-2 text-xs leading-5 text-zinc-500">Sin tarea enlazada ahora mismo.</p>}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-zinc-500">No hay asignaciones activas en esta zona.</p>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Aprobaciones y ejecuciones" subtitle="Puntos donde el mapa espacial conversa con la operación real del sistema.">
-          <div className="space-y-4">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Ejecuciones activas</p>
-              <div className="mt-3 space-y-3">
-                {state.activeRuns.length > 0 ? (
-                  state.activeRuns.slice(0, 4).map((run) => (
-                    <div key={run.id} className="surface-muted p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white">{run.requested_action}</p>
-                          <p className="mt-1 text-sm text-zinc-400">Modo {formatDisplayText(run.execution_mode)} · traza {run.trace_id.slice(0, 8)}</p>
-                        </div>
-                        <StatusBadge status={run.status} />
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-zinc-500">No hay ejecuciones activas ahora mismo.</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Aprobaciones pendientes</p>
-              <div className="mt-3 space-y-3">
-                {state.pendingApprovals.length > 0 ? (
-                  state.pendingApprovals.slice(0, 4).map((approval) => (
-                    <div key={approval.id} className="surface-muted p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white">{formatDisplayText(approval.approval_type)}</p>
-                          <p className="mt-1 text-sm leading-6 text-zinc-400">{approval.reason}</p>
-                        </div>
-                        <StatusBadge status={approval.status} />
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-zinc-500">No hay aprobaciones pendientes.</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </SectionCard>
-      </div>
-    </PageShell>
-  );
+  return <PageShell title="Diseño de oficina" description="Mapa operativo persistente del centro de comando. Primero consolidé la base administrable y luego reforcé la lectura visual para que A y B convivan sin romperse entre sí." action={<MetricPill label="Oficina" value={state.office.name} tone="info" />}>
+    {error ? <ActionFeedback tone="warning" message={error} /> : null}
+    {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
+    <div className="metric-grid xl:grid-cols-4">
+      <div className="panel-card p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Zonas activas</p><p className="mt-2 text-3xl font-semibold text-white">{state.metrics.zones}</p><p className="mt-2 text-sm text-zinc-400">Salas persistidas en el backend espacial.</p></div>
+      <div className="panel-card p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Estaciones ocupadas</p><p className="mt-2 text-3xl font-semibold text-white">{state.metrics.occupiedStations}/{state.metrics.stations}</p><p className="mt-2 text-sm text-zinc-400">Puestos con presencia real de agentes asignados.</p></div>
+      <div className="panel-card p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Agentes presentes</p><p className="mt-2 text-3xl font-semibold text-white">{state.metrics.activeAgents}</p><p className="mt-2 text-sm text-zinc-400">Personal activo desplegado en la oficina digital.</p></div>
+      <div className="panel-card p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Bloqueos humanos</p><p className="mt-2 text-3xl font-semibold text-white">{state.metrics.pendingApprovals}</p><p className="mt-2 text-sm text-zinc-400">Aprobaciones que frenan el flujo automático.</p></div>
+    </div>
+    <div className="grid gap-5 xl:grid-cols-[1.16fr_0.84fr]">
+      <SectionCard title="Plano espacial persistente" subtitle="Cada sala y estación de este plano vive en backend." action={<MetricPill label="Asignaciones" value={String(totalAssignments)} tone="success" />}>
+        <div className="office-board"><div className="office-board__grid" />{state.zones.map((zone) => <section key={zone.id} className={`office-room bg-gradient-to-br ${roomTone(zone.accent)}`} style={{ gridColumn: `${zone.x} / span ${zone.w}`, gridRow: `${zone.y} / span ${zone.h}` }}><div className="office-room__header"><div><p className="office-room__title">{zone.name}</p><p className="office-room__subtitle">{zone.subtitle}</p></div><span className="office-room__badge">{zone.stations.length} estaciones</span></div><div className="grid gap-2">{zone.stations.slice(0, 4).map((station) => { const stationed = zone.agents.filter((item) => item.stationId === station.id); return <div key={station.id} className="rounded-2xl border border-white/10 bg-black/15 p-3"><div className="flex items-center justify-between gap-3"><div className="min-w-0"><p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-white/90">{station.name}</p><p className="mt-1 text-[11px] text-zinc-300">{formatDisplayText(station.stationType)} · capacidad {station.capacity}</p></div><StatusBadge status={station.status} /></div><div className="mt-3 flex flex-wrap gap-2">{stationed.length > 0 ? stationed.slice(0, 3).map((assignment) => <div key={assignment.assignmentId} className="office-room__task-chip"><Bot className="h-3.5 w-3.5" /><span>{assignment.agent.name}</span></div>) : <div className="office-room__task-chip opacity-70"><Clock3 className="h-3.5 w-3.5" /><span>Sin presencia activa</span></div>}</div></div>; })}</div><div className="office-room__tasks">{zone.tasks.slice(0, 2).map((task) => <div key={task.id} className="office-room__task-chip"><Waypoints className="h-3.5 w-3.5" /><span>{task.title}</span></div>)}</div></section>)}<div className="office-flow office-flow--one" /><div className="office-flow office-flow--two" /><div className="office-flow office-flow--three" /></div>
+      </SectionCard>
+      <div className="space-y-5"><SectionCard title="Pulso operativo" subtitle="Lo que está ocurriendo ahora mismo dentro del mapa espacial."><div className="space-y-3"><div className="surface-muted flex items-start gap-3 p-4"><CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" /><div><p className="text-sm font-semibold text-white">Trabajo asignado</p><p className="mt-1 text-sm leading-6 text-zinc-400">{state.metrics.assignedTasks} tareas están conectadas directamente a zonas y estaciones persistentes.</p></div></div><div className="surface-muted flex items-start gap-3 p-4"><ShieldAlert className="mt-0.5 h-5 w-5 text-amber-300" /><div><p className="text-sm font-semibold text-white">Aprobaciones pendientes</p><p className="mt-1 text-sm leading-6 text-zinc-400">{state.pendingApprovals.length > 0 ? `${state.pendingApprovals.length} decisiones humanas siguen abiertas.` : 'No hay bloqueos humanos pendientes ahora mismo.'}</p></div></div><div className="surface-muted flex items-start gap-3 p-4"><Sparkles className="mt-0.5 h-5 w-5 text-fuchsia-300" /><div><p className="text-sm font-semibold text-white">Capacidades activas</p><p className="mt-1 text-sm leading-6 text-zinc-400">{state.activeSkills.length} skills activas alimentan la operación de la oficina.</p></div></div></div></SectionCard><SectionCard title="Riesgos y consistencia" subtitle="Chequeos para asegurar que la opción A no rompa la B ni el plano operativo."><div className="space-y-3">{state.warnings && state.warnings.length > 0 ? state.warnings.map((warning) => <div key={`${warning.code}-${warning.entityId ?? 'global'}`} className="surface-muted p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-white">{warning.title}</p><p className="mt-1 text-sm leading-6 text-zinc-400">{warning.description}</p></div><StatusBadge status={warning.level} /></div></div>) : <EmptyState title="Sin inconsistencias detectadas" description="No se detectaron solapes, sobreocupaciones ni estados espaciales imposibles en esta revisión." />}</div></SectionCard></div>
+    </div>
+    <SectionCard title="Administración espacial, fase A" subtitle="CRUD mínimo para zonas, estaciones y asignaciones sin crear un frontend paralelo." action={<div className="flex flex-wrap gap-2"><Button onClick={() => setZoneModalOpen(true)}><Plus className="mr-2 h-4 w-4" />Zona</Button><Button variant="secondary" onClick={() => { if (state.zones[0]) setStationForm((c) => ({ ...c, zoneId: state.zones[0].id })); setStationModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Estación</Button><Button variant="ghost" onClick={() => { if (allStations[0]) setAssignmentForm((c) => ({ ...c, stationId: allStations[0].id })); if (agents[0]) setAssignmentForm((c) => ({ ...c, agentId: agents[0].id })); setAssignmentModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Asignación</Button></div>}>
+      <div className="grid gap-5 xl:grid-cols-3"><div className="space-y-3"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Zonas</p>{state.zones.map((zone) => <div key={zone.id} className="surface-muted p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-white">{zone.name}</p><p className="mt-1 text-sm text-zinc-400">{zone.subtitle}</p><p className="mt-2 text-xs text-zinc-500">Grid {zone.x},{zone.y} · {zone.w}x{zone.h}</p></div><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setEditingZoneId(zone.id); setZoneForm({ code: zone.code, name: zone.name, subtitle: zone.subtitle, zoneType: zone.zoneType, accent: zone.accent, gridX: zone.x, gridY: zone.y, gridW: zone.w, gridH: zone.h, displayOrder: 0 }); setZoneModalOpen(true); }}>Editar</Button><Button size="sm" variant="ghost" onClick={() => void commandCenterApi.deleteOfficeZone(zone.id).then(loadOffice)}>Eliminar</Button></div></div></div>)}</div><div className="space-y-3"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Estaciones</p>{allStations.map((station) => <div key={station.id} className="surface-muted p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-white">{station.name}</p><p className="mt-1 text-sm text-zinc-400">{station.zoneName} · {formatDisplayText(station.stationType)}</p><p className="mt-2 text-xs text-zinc-500">Capacidad {station.capacity} · {station.assignmentCount ?? 0} ocupadas</p></div><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setEditingStationId(station.id); setStationForm({ zoneId: station.zoneId, code: station.code, name: station.name, stationType: station.stationType, status: station.status, capacity: station.capacity }); setStationModalOpen(true); }}>Editar</Button><Button size="sm" variant="ghost" onClick={() => void commandCenterApi.deleteOfficeStation(station.id).then(loadOffice)}>Eliminar</Button></div></div></div>)}</div><div className="space-y-3"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Asignaciones</p>{allAssignments.map((assignment) => <div key={assignment.assignmentId} className="surface-muted p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-white">{assignment.agent.name}</p><p className="mt-1 text-sm text-zinc-400">{assignment.zoneName} · {assignment.stationName}</p><p className="mt-2 text-xs text-zinc-500">{formatDisplayText(assignment.assignmentRole)}{assignment.task ? ` · ${assignment.task.title}` : ''}</p></div><div className="flex gap-2"><Button size="sm" variant="secondary" onClick={() => { setEditingAssignmentId(assignment.assignmentId); setAssignmentForm({ stationId: assignment.stationId, agentId: assignment.agent.id, taskId: assignment.task?.id ?? '', assignmentRole: assignment.assignmentRole, presenceStatus: assignment.presenceStatus, isPrimary: true, notes: assignment.notes ?? '' }); setAssignmentModalOpen(true); }}>Editar</Button><Button size="sm" variant="ghost" onClick={() => void commandCenterApi.deleteOfficeAssignment(assignment.assignmentId).then(loadOffice)}><Trash2 className="h-4 w-4" /></Button></div></div></div>)}</div></div>
+    </SectionCard>
+    <SectionCard title="Fase B, lectura visual y operativa" subtitle="La mejora visual ya se apoya en la estructura administrable y en checks explícitos de consistencia."><div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]"><div className="space-y-3"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Tareas vivas</p>{state.recentTasks.length === 0 ? <EmptyState title="Sin movimiento reciente" description="Todavía no hay tareas recientes enlazadas al pulso de la oficina." /> : state.recentTasks.map((task) => <div key={task.id} className="surface-muted p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-white">{task.title}</p><p className="mt-1 text-sm leading-6 text-zinc-400">{task.description}</p></div><StatusBadge status={task.status} /></div><div className="mt-3 flex flex-col gap-1 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between"><span>{formatDisplayText(task.task_type)}</span><span>{formatDateTime(task.started_at ?? task.created_at)}</span></div></div>)}</div><div className="space-y-3"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Aprobaciones y ejecuciones</p>{state.activeRuns.length > 0 ? state.activeRuns.slice(0, 3).map((run) => <div key={run.id} className="surface-muted p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-white">{run.requested_action}</p><p className="mt-1 text-sm text-zinc-400">Modo {formatDisplayText(run.execution_mode)} · traza {run.trace_id.slice(0, 8)}</p></div><StatusBadge status={run.status} /></div></div>) : <p className="text-sm text-zinc-500">No hay ejecuciones activas ahora mismo.</p>}{state.pendingApprovals.slice(0, 3).map((approval) => <div key={approval.id} className="surface-muted p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="text-sm font-semibold text-white">{formatDisplayText(approval.approval_type)}</p><p className="mt-1 text-sm leading-6 text-zinc-400">{approval.reason}</p></div><StatusBadge status={approval.status} /></div></div>)}</div></div></SectionCard>
+    <Modal open={zoneModalOpen} onOpenChange={(open) => { if (!open) resetZoneForm(); else setZoneModalOpen(true); }} title={editingZoneId ? 'Editar zona' : 'Crear zona'} description="Define sala, superficie y acento visual persistente."><form className="space-y-4" onSubmit={submitZone}><FormField label="Código"><Input value={zoneForm.code} onChange={(event) => setZoneForm((c) => ({ ...c, code: event.target.value }))} /></FormField><FormField label="Nombre"><Input value={zoneForm.name} onChange={(event) => setZoneForm((c) => ({ ...c, name: event.target.value }))} /></FormField><FormField label="Subtítulo"><Input value={zoneForm.subtitle} onChange={(event) => setZoneForm((c) => ({ ...c, subtitle: event.target.value }))} /></FormField><FormField label="Tipo"><select className="panel-input" value={zoneForm.zoneType} onChange={(event) => setZoneForm((c) => ({ ...c, zoneType: event.target.value }))}><option value="control">control</option><option value="delivery">entrega</option><option value="review">revisión</option><option value="integration">integración</option><option value="focus">enfoque</option><option value="observability">observabilidad</option></select></FormField><FormField label="Acento"><Input value={zoneForm.accent} onChange={(event) => setZoneForm((c) => ({ ...c, accent: event.target.value }))} /></FormField><div className="grid gap-4 md:grid-cols-2"><FormField label="Grid X"><Input type="number" value={zoneForm.gridX} onChange={(event) => setZoneForm((c) => ({ ...c, gridX: Number(event.target.value) }))} /></FormField><FormField label="Grid Y"><Input type="number" value={zoneForm.gridY} onChange={(event) => setZoneForm((c) => ({ ...c, gridY: Number(event.target.value) }))} /></FormField><FormField label="Ancho"><Input type="number" value={zoneForm.gridW} onChange={(event) => setZoneForm((c) => ({ ...c, gridW: Number(event.target.value) }))} /></FormField><FormField label="Alto"><Input type="number" value={zoneForm.gridH} onChange={(event) => setZoneForm((c) => ({ ...c, gridH: Number(event.target.value) }))} /></FormField></div><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : editingZoneId ? 'Actualizar zona' : 'Crear zona'}</Button></form></Modal>
+    <Modal open={stationModalOpen} onOpenChange={(open) => { if (!open) resetStationForm(); else setStationModalOpen(true); }} title={editingStationId ? 'Editar estación' : 'Crear estación'} description="Administra puestos persistentes dentro de cada zona."><form className="space-y-4" onSubmit={submitStation}><FormField label="Zona"><select className="panel-input" value={stationForm.zoneId} onChange={(event) => setStationForm((c) => ({ ...c, zoneId: event.target.value }))}>{state.zones.map((zone) => <option key={zone.id} value={zone.id}>{zone.name}</option>)}</select></FormField><FormField label="Código"><Input value={stationForm.code} onChange={(event) => setStationForm((c) => ({ ...c, code: event.target.value }))} /></FormField><FormField label="Nombre"><Input value={stationForm.name} onChange={(event) => setStationForm((c) => ({ ...c, name: event.target.value }))} /></FormField><div className="grid gap-4 md:grid-cols-2"><FormField label="Tipo"><select className="panel-input" value={stationForm.stationType} onChange={(event) => setStationForm((c) => ({ ...c, stationType: event.target.value }))}><option value="desk">escritorio</option><option value="table">mesa</option><option value="booth">cabina</option><option value="console">consola</option><option value="gateway">gateway</option></select></FormField><FormField label="Estado"><select className="panel-input" value={stationForm.status} onChange={(event) => setStationForm((c) => ({ ...c, status: event.target.value }))}><option value="available">disponible</option><option value="occupied">ocupada</option><option value="reserved">reservada</option><option value="maintenance">mantenimiento</option></select></FormField></div><FormField label="Capacidad"><Input type="number" min={1} max={20} value={stationForm.capacity} onChange={(event) => setStationForm((c) => ({ ...c, capacity: Number(event.target.value) }))} /></FormField><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : editingStationId ? 'Actualizar estación' : 'Crear estación'}</Button></form></Modal>
+    <Modal open={assignmentModalOpen} onOpenChange={(open) => { if (!open) resetAssignmentForm(); else setAssignmentModalOpen(true); }} title={editingAssignmentId ? 'Editar asignación' : 'Crear asignación'} description="Conecta agente, estación y tarea sin romper consistencia operativa."><form className="space-y-4" onSubmit={submitAssignment}><FormField label="Estación"><select className="panel-input" value={assignmentForm.stationId} onChange={(event) => setAssignmentForm((c) => ({ ...c, stationId: event.target.value }))}>{allStations.map((station) => <option key={station.id} value={station.id}>{station.zoneName} · {station.name}</option>)}</select></FormField><FormField label="Agente"><select className="panel-input" value={assignmentForm.agentId} onChange={(event) => setAssignmentForm((c) => ({ ...c, agentId: event.target.value }))}>{agents.map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}</select></FormField><FormField label="Tarea vinculada"><select className="panel-input" value={assignmentForm.taskId} onChange={(event) => setAssignmentForm((c) => ({ ...c, taskId: event.target.value }))}><option value="">Sin tarea vinculada</option>{tasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select></FormField><div className="grid gap-4 md:grid-cols-2"><FormField label="Rol"><Input value={assignmentForm.assignmentRole} onChange={(event) => setAssignmentForm((c) => ({ ...c, assignmentRole: event.target.value }))} /></FormField><FormField label="Presencia"><select className="panel-input" value={assignmentForm.presenceStatus} onChange={(event) => setAssignmentForm((c) => ({ ...c, presenceStatus: event.target.value }))}><option value="present">presente</option><option value="focusing">en foco</option><option value="in_review">en revisión</option><option value="away">ausente</option></select></FormField></div><label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-300"><input type="checkbox" checked={assignmentForm.isPrimary} onChange={(event) => setAssignmentForm((c) => ({ ...c, isPrimary: event.target.checked }))} />Asignación principal</label><FormField label="Notas"><textarea className="panel-input min-h-[110px]" value={assignmentForm.notes} onChange={(event) => setAssignmentForm((c) => ({ ...c, notes: event.target.value }))} /></FormField><Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : editingAssignmentId ? 'Actualizar asignación' : 'Crear asignación'}</Button></form></Modal>
+  </PageShell>;
 }
