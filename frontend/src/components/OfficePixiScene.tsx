@@ -170,6 +170,7 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
   const frameRef = useRef<number | null>(null);
   const [selection, setSelection] = useState<Selection>(null);
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
+  const [renderVersion, setRenderVersion] = useState(0);
   const [appReady, setAppReady] = useState(0);
 
   const zoneSummaries = useMemo(() => buildZoneSummaries(state), [state]);
@@ -234,13 +235,19 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
       powerPreference: 'high-performance',
     }).then(() => {
       if (cancelled) {
-        app.destroy(true, { children: true, texture: true });
+        app.destroy(true, { children: false, texture: false });
         return;
       }
 
       host.innerHTML = '';
       host.appendChild(app.canvas);
       appRef.current = app;
+      app.canvas.addEventListener('webglcontextlost', (event) => {
+        event.preventDefault();
+      });
+      app.canvas.addEventListener('webglcontextrestored', () => {
+        setRenderVersion((current) => current + 1);
+      });
       setAppReady((current) => current + 1);
     });
 
@@ -251,7 +258,7 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
         frameRef.current = null;
       }
       if (appRef.current === app) {
-        appRef.current.destroy(true, { children: true, texture: true });
+        appRef.current.destroy(true, { children: false, texture: false });
         appRef.current = null;
         setAppReady((current) => current + 1);
       }
@@ -260,6 +267,19 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
       }
     };
   }, [viewport.height, viewport.width]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) setRenderVersion((current) => current + 1);
+    };
+    const handleWindowFocus = () => setRenderVersion((current) => current + 1);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleWindowFocus);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, []);
 
   useEffect(() => {
     const app = appRef.current;
@@ -453,7 +473,7 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
         frameRef.current = null;
       }
     };
-  }, [appReady, flowLinks, selection, state, viewport.height, viewport.width, zoneSummaries]);
+  }, [appReady, flowLinks, renderVersion, selection, state, viewport.height, viewport.width, zoneSummaries]);
 
   return (
     <div className="office-scene-shell">
