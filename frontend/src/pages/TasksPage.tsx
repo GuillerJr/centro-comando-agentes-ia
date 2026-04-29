@@ -130,6 +130,44 @@ export function TasksPage() {
     }
   };
 
+  const updateTaskStatus = async (task: Task, status: string) => {
+    try {
+      setActionError(null);
+      setFeedback(null);
+      await commandCenterApi.updateTask(task.id, {
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        taskType: task.task_type,
+        leadSkillId: task.lead_skill_id ?? null,
+        supportSkillIds: task.support_skill_ids,
+        status,
+        resultSummary: task.result_summary,
+        logs: task.logs,
+        createdBy: task.created_by ?? 'operator',
+        metadata: task.metadata ?? {},
+        startedAt: status === 'running' ? new Date().toISOString() : task.started_at ?? null,
+        completedAt: ['completed', 'failed', 'cancelled'].includes(status) ? new Date().toISOString() : null,
+      });
+      setFeedback(`La tarea ahora está en ${formatDisplayText(status)}.`);
+      await loadTasks();
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : 'No se pudo actualizar el estado de la tarea.');
+    }
+  };
+
+  const rerunTask = async (task: Task) => {
+    try {
+      setActionError(null);
+      setFeedback(null);
+      await commandCenterApi.runTask(task.id, { requestedAction: String(task.metadata?.requestedAction ?? task.title), skillIds: task.support_skill_ids, executionMode: 'cli' });
+      setFeedback('La tarea se volvió a ejecutar.');
+      await loadTasks();
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : 'No se pudo volver a ejecutar la tarea.');
+    }
+  };
+
   if (loadError) return <ErrorState message={loadError} action={<Button onClick={() => void loadTasks()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando tareas..." />;
 
@@ -147,12 +185,15 @@ export function TasksPage() {
         ]}
       />
 
-      <SectionCard title="Lectura de la cola" subtitle="Bloque adicional para distinguir presión actual, aprobaciones y volumen cancelado antes de abrir más frentes.">
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Esperando aprobación</p><p className="mt-3 text-2xl font-semibold text-white">{tasks.filter((task) => task.status === 'awaiting_approval').length}</p><p className="mt-2 text-sm text-zinc-400">Tareas detenidas por control humano previo.</p></div>
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Canceladas</p><p className="mt-3 text-2xl font-semibold text-white">{tasks.filter((task) => task.status === 'cancelled').length}</p><p className="mt-2 text-sm text-zinc-400">Trabajo descartado o detenido de forma explícita.</p></div>
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Carga alta</p><p className="mt-3 text-2xl font-semibold text-white">{tasks.filter((task) => task.priority === 'high' || task.priority === 'critical').length}</p><p className="mt-2 text-sm text-zinc-400">Tareas que conviene atender primero.</p></div>
-        </div>
+      <SectionCard title="Lectura de la cola" subtitle="Resumen operativo más compacto y accionable del backlog actual.">
+        <DataTable
+          columns={['Indicador', 'Valor', 'Lectura']}
+          rows={[
+            ['Esperando aprobación', tasks.filter((task) => task.status === 'awaiting_approval').length, 'Tareas detenidas por control humano previo.'],
+            ['Canceladas', tasks.filter((task) => task.status === 'cancelled').length, 'Trabajo descartado o detenido de forma explícita.'],
+            ['Carga alta', tasks.filter((task) => task.priority === 'high' || task.priority === 'critical').length, 'Tareas que conviene atender primero.'],
+          ]}
+        />
       </SectionCard>
 
       <SectionCard title="Cola de tareas" subtitle="Gestión centralizada con tabla, acciones compactas y modales." action={<CreateButton label="Crear tarea" onClick={openCreate} />}>
@@ -164,7 +205,7 @@ export function TasksPage() {
             <span className="text-sm text-zinc-300">{formatDisplayText(task.task_type)}</span>,
             <StatusBadge status={task.status} />,
             <Link className="text-blue-300 hover:text-blue-200" to={`/tasks/${task.id}`}>Ver detalle</Link>,
-            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(task)} />{task.status !== 'cancelled' ? <IconCancelButton onClick={() => void cancelTask(task.id)} /> : null}</div>,
+            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(task)} />{task.status !== 'running' && task.status !== 'completed' ? <Button size="sm" variant="secondary" onClick={() => void updateTaskStatus(task, 'running')}>Run</Button> : null}{task.status === 'running' ? <Button size="sm" variant="ghost" onClick={() => void updateTaskStatus(task, 'completed')}>Completar</Button> : null}{task.status === 'failed' || task.status === 'cancelled' ? <Button size="sm" variant="secondary" onClick={() => void rerunTask(task)}>Reintentar</Button> : null}{task.status !== 'cancelled' ? <IconCancelButton onClick={() => void cancelTask(task.id)} /> : null}</div>,
           ])}
         />
       </SectionCard>
