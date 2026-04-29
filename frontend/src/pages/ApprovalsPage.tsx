@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
+import { Input } from '../components/input';
 import { ActionFeedback, DataTable, EmptyState, ErrorState, formatDisplayText, formatValue, LoadingState, MetricPill, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { Approval } from '../types/domain';
 
@@ -11,6 +12,8 @@ export function ApprovalsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const loadApprovals = async () => {
     try {
@@ -55,8 +58,13 @@ export function ApprovalsPage() {
   if (loadError) return <ErrorState message={loadError} action={<Button onClick={() => void loadApprovals()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando aprobaciones..." />;
 
+  const filteredApprovals = approvals.filter((approval) => {
+    const matchesSearch = `${approval.approval_type} ${approval.requested_by} ${approval.reason}`.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || approval.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
   const pendingCount = approvals.filter((approval) => approval.status === 'pending').length;
-  const latestApproval = approvals[0];
+  const latestApproval = filteredApprovals[0] ?? approvals[0];
 
   return (
     <PageShell
@@ -77,9 +85,13 @@ export function ApprovalsPage() {
 
       <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.2fr)_22rem]">
         <SectionCard title="Bandeja de aprobaciones" subtitle="Gestión de aprobar, rechazar y ejecutar desde tabla compacta.">
+          <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+            <Input placeholder="Buscar aprobación..." value={search} onChange={(event) => setSearch(event.target.value)} />
+            <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="pending">pending</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="executed">executed</option></select>
+          </div>
           <DataTable
             columns={['Tipo', 'Solicitado por', 'Estado', 'Motivo', 'Payload', 'Acciones']}
-            rows={approvals.map((approval) => [
+            rows={filteredApprovals.map((approval) => [
               <div className="text-sm font-medium text-white">{formatDisplayText(approval.approval_type)}</div>,
               <div className="text-sm text-zinc-300">{approval.requested_by}</div>,
               <StatusBadge status={approval.status} />,
