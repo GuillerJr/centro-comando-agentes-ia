@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
-import { DataTable, DetailList, EmptyState, ErrorState, formatDisplayText, formatValue, LoadingState, PageShell, SectionCard, StatsGrid } from '../components/ui';
+import { DataTable, EmptyState, ErrorState, formatDisplayText, formatValue, LoadingState, PageShell, SectionCard, StatsGrid } from '../components/ui';
 import type { SystemSetting } from '../types/domain';
 
 function renderSettingValue(setting: SystemSetting) {
@@ -61,7 +61,15 @@ export function SettingsPage() {
         </SectionCard>
 
         <SectionCard title="Notas de operación" subtitle="Lectura práctica para gobernar la configuración sin perder contexto.">
-          {latestSensitiveSetting ? <DetailList items={[{ label: 'Clave destacada', value: latestSensitiveSetting.setting_key }, { label: 'Categoría', value: formatDisplayText(latestSensitiveSetting.category) }, { label: 'Sensibilidad', value: latestSensitiveSetting.is_sensitive ? 'Requiere protección' : 'Visible' }, { label: 'Descripción', value: latestSensitiveSetting.description }]} /> : <EmptyState title="Sin configuración destacada" description="Todavía no hay parámetros disponibles para construir notas operativas." />}
+          {latestSensitiveSetting ? <DataTable
+            columns={['Campo', 'Valor']}
+            rows={[
+              ['Clave destacada', <span className="text-sm font-medium text-white">{latestSensitiveSetting.setting_key}</span>],
+              ['Categoría', formatDisplayText(latestSensitiveSetting.category)],
+              ['Sensibilidad', latestSensitiveSetting.is_sensitive ? 'Requiere protección' : 'Visible'],
+              ['Descripción', <div className="text-sm leading-6 text-zinc-400">{latestSensitiveSetting.description}</div>],
+            ]}
+          /> : <EmptyState title="Sin configuración destacada" description="Todavía no hay parámetros disponibles para construir notas operativas." />}
         </SectionCard>
       </div>
     </PageShell>

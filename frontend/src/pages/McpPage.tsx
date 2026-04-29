@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
-import { ChipGroup, DataTable, DetailList, EmptyState, ErrorState, formatDateTime, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { DataTable, DetailList, EmptyState, ErrorState, formatDateTime, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { McpServer, McpTool } from '../types/domain';
 
 export function McpPage() {
@@ -59,8 +59,17 @@ export function McpPage() {
         </SectionCard>
 
         <div className="space-y-5">
-          <SectionCard title="Servidor destacado" subtitle="Ficha rápida del primer servidor conectado o del primero registrado.">
-            {firstConnectedServer ? <DetailList items={[{ label: 'Servidor', value: firstConnectedServer.name }, { label: 'Estado', value: <StatusBadge status={firstConnectedServer.status} /> }, { label: 'Último visto', value: formatDateTime(firstConnectedServer.last_seen_at) }, { label: 'Permisos', value: <ChipGroup items={firstConnectedServer.permissions} emptyLabel="Sin permisos declarados" /> }, { label: 'Acciones permitidas', value: <ChipGroup items={firstConnectedServer.allowed_actions} emptyLabel="Sin acciones declaradas" /> }]} /> : <EmptyState title="Sin servidor destacado" description="Todavía no hay servidores MCP registrados para resumir en esta ficha." />}
+          <SectionCard title="Servidor destacado" subtitle="Resumen operativo del servidor priorizado, sin recurrir a cards adicionales.">
+            {firstConnectedServer ? <DataTable
+              columns={['Campo', 'Valor']}
+              rows={[
+                ['Servidor', <span className="text-sm font-medium text-white">{firstConnectedServer.name}</span>],
+                ['Estado', <StatusBadge status={firstConnectedServer.status} />],
+                ['Último visto', formatDateTime(firstConnectedServer.last_seen_at)],
+                ['Permisos', <div className="text-xs leading-6 text-zinc-400">{firstConnectedServer.permissions.length > 0 ? firstConnectedServer.permissions.join(', ') : 'Sin permisos declarados'}</div>],
+                ['Acciones', <div className="text-xs leading-6 text-zinc-400">{firstConnectedServer.allowed_actions.length > 0 ? firstConnectedServer.allowed_actions.join(', ') : 'Sin acciones declaradas'}</div>],
+              ]}
+            /> : <EmptyState title="Sin servidor destacado" description="Todavía no hay servidores MCP registrados para resumir en esta ficha." />}
           </SectionCard>
 
           <SectionCard title="Herramientas" subtitle="Herramientas conocidas por la capa MCP actual.">

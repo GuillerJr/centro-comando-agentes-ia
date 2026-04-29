@@ -46,13 +46,10 @@ export function CommandConsolePage() {
             {snapshot.commandWhitelist.length === 0 ? (
               <EmptyState title="Sin comandos permitidos" description="La capa adaptadora no publicó una lista permitida en este momento." />
             ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                {snapshot.commandWhitelist.map((command) => (
-                  <div key={command} className="break-all rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4 text-sm font-medium text-zinc-200 sm:break-normal">
-                    {formatDisplayText(command)}
-                  </div>
-                ))}
-              </div>
+              <DataTable
+                columns={['Comando', 'Clase']}
+                rows={snapshot.commandWhitelist.map((command) => [<div className="break-all text-sm font-medium text-white sm:break-normal">{formatDisplayText(command)}</div>, <span className="text-xs text-zinc-500">Permitido</span>])}
+              />
             )}
           </CommandConsole>
         </SectionCard>
@@ -76,14 +73,10 @@ export function CommandConsolePage() {
           {snapshot.availableSkills.length === 0 ? (
             <EmptyState title="Sin capacidades visibles" description="No se publicaron capacidades disponibles en esta captura." />
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
-              {snapshot.availableSkills.map((skill) => (
-                <div key={skill.canonicalName} className="surface-muted p-4">
-                  <p className="text-sm font-semibold text-white">{skill.canonicalName}</p>
-                  <div className="mt-3"><ChipGroup items={[skill.type]} /></div>
-                </div>
-              ))}
-            </div>
+            <DataTable
+              columns={['Capacidad', 'Tipo']}
+              rows={snapshot.availableSkills.map((skill) => [<div className="text-sm font-medium text-white">{skill.canonicalName}</div>, <ChipGroup items={[skill.type]} />])}
+            />
           )}
         </SectionCard>
       </div>
