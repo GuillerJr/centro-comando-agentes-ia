@@ -37,8 +37,8 @@ type StationPoint = { x: number; y: number; width: number; height: number; zoneI
 type ZoneRect = { x: number; y: number; width: number; height: number; centerX: number; centerY: number };
 
 const gridPadding = 28;
-const minSceneWidth = 1200;
-const minSceneHeight = 700;
+const minSceneWidth = 1380;
+const minSceneHeight = 860;
 
 const zoneTones: Record<SceneZoneSummary['pulseTone'], ZoneTone> = {
   idle: { fill: 0x18202f, border: 0x475569, accent: 0x94a3b8, glow: 0x64748b, label: 'En espera' },
@@ -190,6 +190,15 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
   }, [selection, state.zones]);
 
   const topZones = useMemo(() => [...zoneSummaries].sort((left, right) => right.activityScore - left.activityScore).slice(0, 3), [zoneSummaries]);
+  const topFlows = useMemo(() => flowLinks.slice(0, 3).map((link) => {
+    const fromZone = state.zones.find((zone) => zone.id === link.fromZoneId);
+    const toZone = state.zones.find((zone) => zone.id === link.toZoneId);
+    return {
+      ...link,
+      fromZoneName: fromZone?.name ?? 'Zona',
+      toZoneName: toZone?.name ?? 'Zona',
+    };
+  }), [flowLinks, state.zones]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -449,7 +458,8 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
         <div className="office-scene-toolbar">
           <div>
             <p className="office-scene-toolbar__eyebrow">Escena operativa</p>
-            <h4 className="office-scene-toolbar__title">Oficina viva en 2D</h4>
+            <h4 className="office-scene-toolbar__title">Mapa operativo 2D</h4>
+            <p className="office-scene-toolbar__subtitle">La escena concentra zonas, estaciones, agentes y handoffs persistidos en una sola lectura visual.</p>
           </div>
           <div className="office-scene-toolbar__metrics">
             <span>{state.metrics.zones} salas</span>
@@ -462,72 +472,87 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
 
       <div className="office-scene-sidebar">
         <section className="office-scene-panel">
-          <p className="office-scene-panel__eyebrow">Selección</p>
-          {selectedZone ? (
-            <div className="office-scene-selection">
-              <h4>{selectedZone.zone.name}</h4>
-              <p>{selectedZone.zone.subtitle}</p>
-              <div className="office-scene-chip-row">
-                <span>{zoneTones[selectedZone.pulseTone].label}</span>
-                <span>{selectedZone.zone.stations.length} estaciones</span>
-                <span>{selectedZone.zone.agents.length} agentes</span>
+          <p className="office-scene-panel__eyebrow">Contexto</p>
+          <div className="office-scene-stack">
+            {selectedZone ? (
+              <div className="office-scene-selection">
+                <h4>{selectedZone.zone.name}</h4>
+                <p>{selectedZone.zone.subtitle}</p>
+                <div className="office-scene-chip-row">
+                  <span>{zoneTones[selectedZone.pulseTone].label}</span>
+                  <span>{selectedZone.zone.stations.length} estaciones</span>
+                  <span>{selectedZone.zone.agents.length} agentes</span>
+                </div>
+                <dl className="office-scene-definition-list">
+                  <div><dt>Runs</dt><dd>{selectedZone.activeRuns.length}</dd></div>
+                  <div><dt>Tareas</dt><dd>{selectedZone.zone.tasks.length}</dd></div>
+                  <div><dt>Aprobaciones</dt><dd>{selectedZone.pendingApprovals.length}</dd></div>
+                  <div><dt>Pulso</dt><dd>{selectedZone.activityScore}</dd></div>
+                </dl>
               </div>
-              <dl className="office-scene-definition-list">
-                <div><dt>Runs</dt><dd>{selectedZone.activeRuns.length}</dd></div>
-                <div><dt>Tareas</dt><dd>{selectedZone.zone.tasks.length}</dd></div>
-                <div><dt>Aprobaciones</dt><dd>{selectedZone.pendingApprovals.length}</dd></div>
-                <div><dt>Pulso</dt><dd>{selectedZone.activityScore}</dd></div>
-              </dl>
-            </div>
-          ) : null}
+            ) : null}
 
-          {selectedAssignment ? (
-            <div className="office-scene-selection">
-              <h4>{selectedAssignment.assignment.agent.name}</h4>
-              <p>{selectedAssignment.zone.name} · {selectedAssignment.assignment.stationName}</p>
-              <div className="office-scene-chip-row">
-                <span>{presenceTones[selectedAssignment.assignment.presenceStatus]?.label ?? 'Presente'}</span>
-                <span>{formatDisplayText(selectedAssignment.assignment.assignmentRole)}</span>
+            {selectedAssignment ? (
+              <div className="office-scene-selection">
+                <h4>{selectedAssignment.assignment.agent.name}</h4>
+                <p>{selectedAssignment.zone.name} · {selectedAssignment.assignment.stationName}</p>
+                <div className="office-scene-chip-row">
+                  <span>{presenceTones[selectedAssignment.assignment.presenceStatus]?.label ?? 'Presente'}</span>
+                  <span>{formatDisplayText(selectedAssignment.assignment.assignmentRole)}</span>
+                </div>
+                <dl className="office-scene-definition-list">
+                  <div><dt>Tarea</dt><dd>{selectedAssignment.assignment.task?.title ?? 'Sin tarea activa'}</dd></div>
+                  <div><dt>Presencia</dt><dd>{presenceTones[selectedAssignment.assignment.presenceStatus]?.label ?? 'Presente'}</dd></div>
+                  <div><dt>Notas</dt><dd>{selectedAssignment.assignment.notes ?? 'Sin notas'}</dd></div>
+                  <div><dt>Creado</dt><dd>{formatDateTime(selectedAssignment.assignment.agent.created_at)}</dd></div>
+                </dl>
               </div>
-              <dl className="office-scene-definition-list">
-                <div><dt>Tarea</dt><dd>{selectedAssignment.assignment.task?.title ?? 'Sin tarea activa'}</dd></div>
-                <div><dt>Presencia</dt><dd>{presenceTones[selectedAssignment.assignment.presenceStatus]?.label ?? 'Presente'}</dd></div>
-                <div><dt>Notas</dt><dd>{selectedAssignment.assignment.notes ?? 'Sin notas'}</dd></div>
-                <div><dt>Creado</dt><dd>{formatDateTime(selectedAssignment.assignment.agent.created_at)}</dd></div>
-              </dl>
-            </div>
-          ) : null}
+            ) : null}
 
-          {!selectedZone && !selectedAssignment ? (
-            <div className="office-scene-selection office-scene-selection--empty">
-              <h4>Explora la oficina</h4>
-              <p>Haz click sobre una sala o un agente para inspeccionar el estado operativo real detrás de la escena.</p>
-            </div>
-          ) : null}
-        </section>
+            {!selectedZone && !selectedAssignment ? (
+              <div className="office-scene-selection office-scene-selection--empty">
+                <h4>Explora la oficina</h4>
+                <p>Haz click sobre una sala o un agente para inspeccionar el estado operativo real detrás de la escena.</p>
+              </div>
+            ) : null}
 
-        <section className="office-scene-panel">
-          <p className="office-scene-panel__eyebrow">Leyenda</p>
-          <div className="office-scene-legend">
-            <div><span className="office-scene-legend__dot office-scene-legend__dot--focus" />Sala en foco o ejecutando runs</div>
-            <div><span className="office-scene-legend__dot office-scene-legend__dot--blocked" />Bloqueo por aprobación pendiente</div>
-            <div><span className="office-scene-legend__dot office-scene-legend__dot--agent" />Agente visible asignado a estación</div>
-            <div><span className="office-scene-legend__line" />Handoff entre zonas por tarea compartida</div>
+            <div className="office-scene-inline-note">
+              <strong>{state.pendingApprovals.length}</strong>
+              <span>aprobaciones abiertas impactan el flujo visible del plano.</span>
+            </div>
+
+            <div className="office-scene-legend">
+              <div><span className="office-scene-legend__dot office-scene-legend__dot--focus" />Sala en foco o ejecutando runs</div>
+              <div><span className="office-scene-legend__dot office-scene-legend__dot--blocked" />Bloqueo por aprobación pendiente</div>
+              <div><span className="office-scene-legend__dot office-scene-legend__dot--agent" />Agente visible asignado a estación</div>
+              <div><span className="office-scene-legend__line" />Handoff entre zonas por tarea compartida</div>
+            </div>
           </div>
         </section>
 
         <section className="office-scene-panel">
-          <p className="office-scene-panel__eyebrow">Zonas con más actividad</p>
-          <div className="office-scene-ranking">
-            {topZones.map((entry) => (
-              <button key={entry.zone.id} type="button" className="office-scene-ranking__item" onClick={() => setSelection({ kind: 'zone', zoneId: entry.zone.id })}>
-                <div>
-                  <strong>{entry.zone.name}</strong>
-                  <span>{zoneTones[entry.pulseTone].label} · {entry.zone.tasks.length} tareas</span>
+          <p className="office-scene-panel__eyebrow">Prioridades</p>
+          <div className="office-scene-stack">
+            <div className="office-scene-ranking">
+              {topZones.map((entry) => (
+                <button key={entry.zone.id} type="button" className="office-scene-ranking__item" onClick={() => setSelection({ kind: 'zone', zoneId: entry.zone.id })}>
+                  <div>
+                    <strong>{entry.zone.name}</strong>
+                    <span>{zoneTones[entry.pulseTone].label} · {entry.zone.tasks.length} tareas</span>
+                  </div>
+                  <span>{entry.activityScore}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="office-scene-flow-list">
+              {topFlows.length > 0 ? topFlows.map((flow) => (
+                <div key={flow.id} className="office-scene-flow-item">
+                  <strong>{flow.taskTitle}</strong>
+                  <span>{`${flow.fromZoneName} -> ${flow.toZoneName}`}</span>
                 </div>
-                <span>{entry.activityScore}</span>
-              </button>
-            ))}
+              )) : <p className="office-scene-flow-empty">No hay handoffs multi-zona activos.</p>}
+            </div>
           </div>
         </section>
       </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowRight, Bot, CheckCircle2, Plus, ShieldAlert, Sparkles, Trash2, Waypoints } from 'lucide-react';
+import { Bot, Plus, Trash2 } from 'lucide-react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
 import { Input } from '../components/input';
@@ -57,13 +57,6 @@ const presenceLabel = (status: string) => {
   if (status === 'in_review') return 'En revisión';
   if (status === 'away') return 'Ausente';
   return 'Presente';
-};
-
-const pulseLabel = (tone: ZoneSummary['pulseTone']) => {
-  if (tone === 'blocked') return 'Bloqueada';
-  if (tone === 'focus') return 'En foco';
-  if (tone === 'active') return 'Activa';
-  return 'En espera';
 };
 
 const getZoneTaskMap = (zone: OfficeZone) => {
@@ -171,6 +164,8 @@ export function OfficeDesignPage() {
     [zoneSummaries],
   );
 
+  const leadZone = sortedZoneSummaries[0] ?? null;
+
   const flowLinks = useMemo<FlowLink[]>(() => {
     if (!state) return [];
 
@@ -230,6 +225,10 @@ export function OfficeDesignPage() {
       toZoneName: zoneNames.get(link.toZoneId) ?? 'Zona',
     }));
   }, [flowLinks, state]);
+
+  const liveTasks = state?.recentTasks.length ?? 0;
+  const activeFlows = handoffFeed.length;
+  const riskCount = state ? state.pendingApprovals.length + state.warnings.length : 0;
 
   const resetZoneForm = () => {
     setEditingZoneId(null);
@@ -318,124 +317,44 @@ export function OfficeDesignPage() {
       {error ? <ActionFeedback tone="warning" message={error} /> : null}
       {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
 
-      <div className="metric-grid xl:grid-cols-4">
-        <div className="panel-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Zonas con pulso</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{state.metrics.zones}</p>
-          <p className="mt-2 text-sm text-zinc-400">Cada sala emite estado visual según presencia, tareas, runs y bloqueos reales.</p>
-        </div>
-        <div className="panel-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Presencia activa</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{state.metrics.activeAgents}</p>
-          <p className="mt-2 text-sm text-zinc-400">Agentes visibles en zona con señales de foco, revisión o espera.</p>
-        </div>
-        <div className="panel-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Handoffs detectados</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{handoffFeed.length}</p>
-          <p className="mt-2 text-sm text-zinc-400">Transferencias entre zonas cuando el mismo trabajo toca más de un área del plano.</p>
-        </div>
-        <div className="panel-card p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Bloqueos humanos</p>
-          <p className="mt-2 text-3xl font-semibold text-white">{state.metrics.pendingApprovals}</p>
-          <p className="mt-2 text-sm text-zinc-400">Aprobaciones pendientes que frenan el flujo automático visible sobre el mapa.</p>
-        </div>
-      </div>
+      <section className="office-design-studio">
+        <div className="office-design-studio__header">
+          <div className="office-design-studio__copy">
+            <p className="office-design-studio__eyebrow">Escena principal</p>
+            <h3 className="office-design-studio__title">La oficina 2D pasa al centro de la lectura operativa</h3>
+            <p className="office-design-studio__description">Se eliminó la capa de dashboard alrededor del mapa para concentrar presencia, handoffs, bloqueos y contexto espacial en una composición única: escena dominante con apoyo lateral compacto.</p>
+          </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-        <SectionCard title="Oficina viva" subtitle="Presencia, pulso y tránsitos calculados sobre zonas, estaciones, asignaciones, tareas, runs y aprobaciones." action={<MetricPill label="Asignaciones" value={String(totalAssignments)} tone="success" />}>
-          <OfficePixiScene state={state} />
-        </SectionCard>
-
-        <div className="space-y-5">
-          <SectionCard title="Pulso por zona" subtitle="Lectura rápida del mapa como si fuera una simulación operativa viva.">
-            <div className="space-y-3">
-              {sortedZoneSummaries.map((zone) => (
-                <div key={zone.id} className={`office-zone-feed office-zone-feed--${zone.pulseTone}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-white">{zone.name}</p>
-                        <span className={`office-zone-feed__pill office-zone-feed__pill--${zone.pulseTone}`}>{pulseLabel(zone.pulseTone)}</span>
-                      </div>
-                      <p className="mt-1 text-sm leading-6 text-zinc-400">{zone.pendingApprovals.length > 0 ? `${zone.pendingApprovals.length} aprobación pendiente impacta esta zona.` : `${zone.focusingAgents} agentes en foco, ${zone.reviewingAgents} en revisión y ${zone.awayAgents} ausentes.`}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Pulso</p>
-                      <p className="mt-1 text-lg font-semibold text-white">{zone.activityScore}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
+          <div className="office-design-studio__summary">
+            <div className="office-design-studio__metric">
+              <span>Zonas activas</span>
+              <strong>{state.metrics.zones}</strong>
+              <small>{leadZone ? `${leadZone.name} lidera el pulso` : 'Sin zonas destacadas'}</small>
             </div>
-          </SectionCard>
-
-          <SectionCard title="Flujos y bloqueos" subtitle="Tránsitos detectados y frenos humanos visibles sin simular eventos inexistentes.">
-            <div className="space-y-3">
-              {handoffFeed.length > 0 ? handoffFeed.map((handoff) => (
-                <div key={handoff.id} className="surface-muted p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                        <Waypoints className="h-4 w-4 text-cyan-300" />
-                        <span>{handoff.taskTitle}</span>
-                      </div>
-                      <p className="mt-2 flex items-center gap-2 text-sm text-zinc-400">
-                        <span>{handoff.fromZoneName}</span>
-                        <ArrowRight className="h-3.5 w-3.5 text-zinc-500" />
-                        <span>{handoff.toZoneName}</span>
-                      </p>
-                    </div>
-                    <StatusBadge status={handoff.taskStatus} />
-                  </div>
-                </div>
-              )) : <EmptyState title="Sin handoffs multi-zona" description="Aun no hay tareas compartidas entre varias zonas del plano persistente." />}
-
-              <div className="surface-muted flex items-start gap-3 p-4">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-300" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Trabajo asignado</p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">{state.metrics.assignedTasks} tareas están conectadas directamente a zonas y estaciones persistentes.</p>
-                </div>
-              </div>
-
-              <div className="surface-muted flex items-start gap-3 p-4">
-                <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-300" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Aprobaciones pendientes</p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">{state.pendingApprovals.length > 0 ? `${state.pendingApprovals.length} decisiones humanas siguen abiertas y tensionan el mapa.` : 'No hay bloqueos humanos pendientes ahora mismo.'}</p>
-                </div>
-              </div>
-
-              <div className="surface-muted flex items-start gap-3 p-4">
-                <Sparkles className="mt-0.5 h-5 w-5 text-fuchsia-300" />
-                <div>
-                  <p className="text-sm font-semibold text-white">Capacidades activas</p>
-                  <p className="mt-1 text-sm leading-6 text-zinc-400">{state.activeSkills.length} skills activas alimentan la operación y matizan el comportamiento visible de la oficina.</p>
-                </div>
-              </div>
+            <div className="office-design-studio__metric">
+              <span>Agentes visibles</span>
+              <strong>{state.metrics.activeAgents}</strong>
+              <small>{totalAssignments} asignaciones persistidas</small>
             </div>
-          </SectionCard>
-
-          <SectionCard title="Riesgos y consistencia" subtitle="Chequeos del backend espacial, preservados como contraparte real de la capa inmersiva.">
-            <div className="space-y-3">
-              {state.warnings.length > 0 ? state.warnings.map((warning) => (
-                <div key={`${warning.code}-${warning.entityId ?? 'global'}`} className="surface-muted p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white">{warning.title}</p>
-                      <p className="mt-1 text-sm leading-6 text-zinc-400">{warning.description}</p>
-                    </div>
-                    <StatusBadge status={warning.level} />
-                  </div>
-                </div>
-              )) : <EmptyState title="Sin inconsistencias detectadas" description="No se detectan conflictos entre zonas, estaciones y asignaciones persistidas." />}
+            <div className="office-design-studio__metric">
+              <span>Flujo vivo</span>
+              <strong>{activeFlows}</strong>
+              <small>{liveTasks} tareas recientes enlazadas al mapa</small>
             </div>
-          </SectionCard>
+            <div className="office-design-studio__metric">
+              <span>Riesgos abiertos</span>
+              <strong>{riskCount}</strong>
+              <small>{state.metrics.pendingApprovals} aprobaciones pendientes</small>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <SectionCard title="Administración espacial" subtitle="La capa viva se apoya sobre el mismo CRUD real de zonas, estaciones y asignaciones." action={<div className="flex flex-wrap gap-2"><Button onClick={() => setZoneModalOpen(true)}><Plus className="mr-2 h-4 w-4" />Zona</Button><Button variant="secondary" onClick={() => { if (state.zones[0]) setStationForm((current) => ({ ...current, zoneId: state.zones[0].id })); setStationModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Estación</Button><Button variant="ghost" onClick={() => { if (allStations[0]) setAssignmentForm((current) => ({ ...current, stationId: allStations[0].id })); if (agents[0]) setAssignmentForm((current) => ({ ...current, agentId: agents[0].id })); setAssignmentModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Asignación</Button></div>}>
-        <div className="grid gap-5 xl:grid-cols-3">
+        <OfficePixiScene state={state} />
+      </section>
+
+      <div className="office-design-lower-grid">
+        <SectionCard title="Administración espacial" subtitle="Se conserva el CRUD real, pero en una banda de soporte más compacta que no compite con la escena." action={<div className="flex flex-wrap gap-2"><Button onClick={() => setZoneModalOpen(true)}><Plus className="mr-2 h-4 w-4" />Zona</Button><Button variant="secondary" onClick={() => { if (state.zones[0]) setStationForm((current) => ({ ...current, zoneId: state.zones[0].id })); setStationModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Estación</Button><Button variant="ghost" onClick={() => { if (allStations[0]) setAssignmentForm((current) => ({ ...current, stationId: allStations[0].id })); if (agents[0]) setAssignmentForm((current) => ({ ...current, agentId: agents[0].id })); setAssignmentModalOpen(true); }}><Plus className="mr-2 h-4 w-4" />Asignación</Button></div>}>
+          <div className="grid gap-5 xl:grid-cols-3">
           <div className="space-y-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Zonas</p>
             {state.zones.map((zone) => (
@@ -495,12 +414,12 @@ export function OfficeDesignPage() {
               </div>
             )) : <EmptyState title="Sin asignaciones" description="Todavía no hay agentes conectados a estaciones dentro del plano." />}
           </div>
-        </div>
-      </SectionCard>
+          </div>
+        </SectionCard>
 
-      <SectionCard title="Lectura operativa" subtitle="Actividad reciente, ejecuciones y aprobaciones como complemento de la vista espacial viva.">
-        <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-          <div className="space-y-3">
+        <SectionCard title="Registro operativo" subtitle="El resto de la señal queda agrupado en un único bloque analítico sobrio: tareas, ejecuciones, aprobaciones y consistencia.">
+          <div className="grid gap-5 xl:grid-cols-3">
+            <div className="space-y-3">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Tareas vivas</p>
             {state.recentTasks.length === 0 ? <EmptyState title="Sin movimiento reciente" description="Todavía no hay tareas recientes enlazadas al pulso de la oficina." /> : state.recentTasks.map((task) => (
               <div key={task.id} className="surface-muted p-4">
@@ -517,11 +436,11 @@ export function OfficeDesignPage() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
 
-          <div className="space-y-3">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Ejecuciones y aprobaciones</p>
-            {state.activeRuns.length > 0 ? state.activeRuns.slice(0, 3).map((run) => (
+            <div className="space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Ejecuciones y aprobaciones</p>
+              {state.activeRuns.length > 0 ? state.activeRuns.slice(0, 3).map((run) => (
               <div key={run.id} className="surface-muted p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -533,7 +452,7 @@ export function OfficeDesignPage() {
               </div>
             )) : <p className="text-sm text-zinc-500">No hay ejecuciones activas ahora mismo.</p>}
 
-            {state.pendingApprovals.slice(0, 3).map((approval) => (
+              {state.pendingApprovals.slice(0, 3).map((approval) => (
               <div key={approval.id} className="surface-muted p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -545,9 +464,25 @@ export function OfficeDesignPage() {
                 </div>
               </div>
             ))}
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Riesgos y consistencia</p>
+              {state.warnings.length > 0 ? state.warnings.map((warning) => (
+                <div key={`${warning.code}-${warning.entityId ?? 'global'}`} className="surface-muted p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">{warning.title}</p>
+                      <p className="mt-1 text-sm leading-6 text-zinc-400">{warning.description}</p>
+                    </div>
+                    <StatusBadge status={warning.level} />
+                  </div>
+                </div>
+              )) : <EmptyState title="Sin inconsistencias detectadas" description="No se detectan conflictos entre zonas, estaciones y asignaciones persistidas." />}
+            </div>
           </div>
-        </div>
-      </SectionCard>
+        </SectionCard>
+      </div>
 
       <Modal open={zoneModalOpen} onOpenChange={(open) => { if (!open) resetZoneForm(); else setZoneModalOpen(true); }} title={editingZoneId ? 'Editar zona' : 'Crear zona'} description="Define sala, superficie y acento visual persistente.">
         <form className="space-y-4" onSubmit={submitZone}>
