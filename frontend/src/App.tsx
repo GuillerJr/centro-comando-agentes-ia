@@ -7,6 +7,7 @@ import { AuditPage } from './pages/AuditPage';
 import { CommandConsolePage } from './pages/CommandConsolePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { McpPage } from './pages/McpPage';
+import { OfficeDesignPage } from './pages/OfficeDesignPage';
 import { RunsPage } from './pages/RunsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { SkillsPage } from './pages/SkillsPage';
@@ -42,6 +43,7 @@ export function App() {
           <div className="mx-auto flex w-full max-w-[1560px] flex-col gap-5 pb-8">
             <Routes>
               <Route path="/" element={<DashboardPage />} />
+              <Route path="/office-design" element={<OfficeDesignPage />} />
               <Route path="/agents" element={<AgentsPage />} />
               <Route path="/skills" element={<SkillsPage />} />
               <Route path="/tasks" element={<TasksPage />} />

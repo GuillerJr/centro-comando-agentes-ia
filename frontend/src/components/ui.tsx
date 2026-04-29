@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Activity,
   Bot,
+  Building2,
   ChevronLeft,
   ChevronRight,
   Command,
@@ -34,6 +35,7 @@ const navGroups: NavGroup[] = [
     title: 'Visión general',
     items: [
       { to: '/', label: 'Panel general', icon: LayoutDashboard },
+      { to: '/office-design', label: 'Diseño de oficina', icon: Building2 },
       { to: '/agents', label: 'Agentes', icon: Bot },
       { to: '/skills', label: 'Capacidades', icon: Sparkles },
     ],
