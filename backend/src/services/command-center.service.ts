@@ -606,8 +606,34 @@ export const commandCenterService = {
   async createMcpServer(payload: any) {
     return commandCenterRepository.createMcpServer(payload);
   },
+  async updateMcpServer(serverId: string, payload: any) {
+    const server = await commandCenterRepository.updateMcpServer(serverId, payload);
+    if (!server) throw new AppError('MCP server not found', 404);
+    return server;
+  },
+  async updateMcpServerStatus(serverId: string, status: string) {
+    const server = await commandCenterRepository.updateMcpServerStatus(serverId, status);
+    if (!server) throw new AppError('MCP server not found', 404);
+    return server;
+  },
   async listMcpTools() {
     return commandCenterRepository.getMcpTools();
+  },
+  async listSystemSettings() {
+    return commandCenterRepository.getSystemSettings();
+  },
+  async createSystemSetting(payload: any) {
+    return commandCenterRepository.createSystemSetting(payload);
+  },
+  async updateSystemSetting(settingId: string, payload: any) {
+    const setting = await commandCenterRepository.updateSystemSetting(settingId, payload);
+    if (!setting) throw new AppError('System setting not found', 404);
+    return setting;
+  },
+  async updateSystemSettingVisibility(settingId: string, isSensitive: boolean) {
+    const setting = await commandCenterRepository.updateSystemSettingVisibility(settingId, isSensitive);
+    if (!setting) throw new AppError('System setting not found', 404);
+    return setting;
   },
   async getCommandConsoleSnapshot() {
     const [agents, skills, logs] = await Promise.all([

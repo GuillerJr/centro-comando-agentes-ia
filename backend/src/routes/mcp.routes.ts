@@ -8,6 +8,8 @@ const router = Router();
 router.use(requireFutureAuth);
 router.get('/servers', asyncHandler(mcpController.listServers));
 router.post('/servers', asyncHandler(mcpController.createServer));
+router.put('/servers/:serverId', asyncHandler(mcpController.updateServer));
+router.patch('/servers/:serverId/status', asyncHandler(mcpController.updateServerStatus));
 router.get('/tools', asyncHandler(mcpController.listTools));
 
 export default router;

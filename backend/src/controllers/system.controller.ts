@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { validateConnectionSchema } from '../schemas/system.schemas.js';
+import { createSystemSettingSchema, updateSystemSettingSchema, updateSystemSettingVisibilitySchema, validateConnectionSchema } from '../schemas/system.schemas.js';
 import { commandCenterService } from '../services/command-center.service.js';
 import { successResponse } from '../utils/api.js';
 
@@ -24,5 +24,24 @@ export const systemController = {
   async commandConsole(_request: Request, response: Response) {
     const data = await commandCenterService.getCommandConsoleSnapshot();
     return response.json(successResponse('Command console snapshot loaded', data));
+  },
+  async listSettings(_request: Request, response: Response) {
+    const data = await commandCenterService.listSystemSettings();
+    return response.json(successResponse('System settings loaded', data));
+  },
+  async createSetting(request: Request, response: Response) {
+    const payload = createSystemSettingSchema.parse(request.body);
+    const data = await commandCenterService.createSystemSetting(payload);
+    return response.status(201).json(successResponse('System setting created', data));
+  },
+  async updateSetting(request: Request, response: Response) {
+    const payload = updateSystemSettingSchema.parse(request.body);
+    const data = await commandCenterService.updateSystemSetting(String(request.params.settingId), payload);
+    return response.json(successResponse('System setting updated', data));
+  },
+  async updateSettingVisibility(request: Request, response: Response) {
+    const payload = updateSystemSettingVisibilitySchema.parse(request.body);
+    const data = await commandCenterService.updateSystemSettingVisibility(String(request.params.settingId), payload.isSensitive);
+    return response.json(successResponse('System setting visibility updated', data));
   },
 };

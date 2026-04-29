@@ -39,6 +39,8 @@ export const commandCenterApi = {
 
   getMcpServers: () => apiRequest<McpServer[]>('/mcp/servers'),
   createMcpServer: (payload: unknown) => apiRequest<McpServer>('/mcp/servers', { method: 'POST', body: JSON.stringify(payload) }),
+  updateMcpServer: (serverId: string, payload: unknown) => apiRequest<McpServer>(`/mcp/servers/${serverId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  updateMcpServerStatus: (serverId: string, status: string) => apiRequest<McpServer>(`/mcp/servers/${serverId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   getMcpTools: () => apiRequest<McpTool[]>('/mcp/tools'),
 
   getCurrentOfficeLayout: () => apiRequest<OfficeLayout>('/offices/current/layout'),
@@ -53,8 +55,8 @@ export const commandCenterApi = {
   updateOfficeAssignment: (assignmentId: string, payload: unknown) => apiRequest(`/offices/current/assignments/${assignmentId}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteOfficeAssignment: (assignmentId: string) => apiRequest(`/offices/current/assignments/${assignmentId}`, { method: 'DELETE' }),
 
-  getSettings: async () => {
-    const dashboard = await apiRequest<DashboardData>('/system/dashboard');
-    return dashboard.settings as SystemSetting[];
-  },
+  getSettings: () => apiRequest<SystemSetting[]>('/system/settings'),
+  createSetting: (payload: unknown) => apiRequest<SystemSetting>('/system/settings', { method: 'POST', body: JSON.stringify(payload) }),
+  updateSetting: (settingId: string, payload: unknown) => apiRequest<SystemSetting>(`/system/settings/${settingId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  updateSettingVisibility: (settingId: string, isSensitive: boolean) => apiRequest<SystemSetting>(`/system/settings/${settingId}/visibility`, { method: 'PATCH', body: JSON.stringify({ isSensitive }) }),
 };

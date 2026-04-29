@@ -163,6 +163,24 @@ export const commandCenterRepository = {
     );
     return result.rows[0];
   },
+  async updateMcpServer(serverId: string, payload: any) {
+    const result = await pool.query(
+      `UPDATE ai_mcp_servers
+       SET name=$2, description=$3, transport_type=$4, endpoint=$5, status=$6, permissions=$7, allowed_actions=$8, metadata=$9, last_seen_at=CASE WHEN $6 = 'connected' THEN NOW() ELSE last_seen_at END
+       WHERE id=$1 RETURNING *`,
+      [serverId, payload.name, payload.description, payload.transportType, payload.endpoint, payload.status, JSON.stringify(payload.permissions ?? []), JSON.stringify(payload.allowedActions ?? []), JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0] ?? null;
+  },
+  async updateMcpServerStatus(serverId: string, status: string) {
+    const result = await pool.query(
+      `UPDATE ai_mcp_servers
+       SET status=$2, last_seen_at=CASE WHEN $2 = 'connected' THEN NOW() ELSE last_seen_at END
+       WHERE id=$1 RETURNING *`,
+      [serverId, status],
+    );
+    return result.rows[0] ?? null;
+  },
   async getMcpTools() {
     const result = await pool.query('SELECT * FROM ai_mcp_tools ORDER BY name ASC');
     return result.rows;
@@ -170,6 +188,31 @@ export const commandCenterRepository = {
   async getSystemSettings() {
     const result = await pool.query('SELECT * FROM ai_system_settings ORDER BY setting_key ASC');
     return result.rows;
+  },
+  async getSystemSettingById(settingId: string) {
+    const result = await pool.query('SELECT * FROM ai_system_settings WHERE id = $1', [settingId]);
+    return result.rows[0] ?? null;
+  },
+  async createSystemSetting(payload: any) {
+    const result = await pool.query(
+      `INSERT INTO ai_system_settings (setting_key, setting_value, category, is_sensitive, description)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [payload.settingKey, JSON.stringify(payload.settingValue), payload.category, payload.isSensitive, payload.description],
+    );
+    return result.rows[0];
+  },
+  async updateSystemSetting(settingId: string, payload: any) {
+    const result = await pool.query(
+      `UPDATE ai_system_settings
+       SET setting_key=$2, setting_value=$3, category=$4, is_sensitive=$5, description=$6
+       WHERE id=$1 RETURNING *`,
+      [settingId, payload.settingKey, JSON.stringify(payload.settingValue), payload.category, payload.isSensitive, payload.description],
+    );
+    return result.rows[0] ?? null;
+  },
+  async updateSystemSettingVisibility(settingId: string, isSensitive: boolean) {
+    const result = await pool.query('UPDATE ai_system_settings SET is_sensitive = $2 WHERE id = $1 RETURNING *', [settingId, isSensitive]);
+    return result.rows[0] ?? null;
   },
   async getDefaultOffice() {
     const result = await pool.query('SELECT * FROM ai_offices WHERE is_default = TRUE ORDER BY created_at ASC LIMIT 1');
