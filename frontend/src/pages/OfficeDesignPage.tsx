@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, CheckCircle2, CircleDot, ClipboardList, GitBranch, ShieldAlert, Sparkles, Waypoints } from 'lucide-react';
+import { Bot, CheckCircle2, CircleDot, Clock3, Cpu, ShieldAlert, Sparkles } from 'lucide-react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
-import { EmptyState, ErrorState, formatDateTime, formatDisplayText, InfoPanel, LoadingState, MetricPill, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { EmptyState, ErrorState, formatDateTime, formatDisplayText, InfoPanel, LoadingState, MetricPill, PageShell, SectionCard, StatusBadge } from '../components/ui';
 import type { Agent, Approval, Skill, Task, TaskRun } from '../types/domain';
 
 type OfficeSnapshot = {
@@ -13,97 +13,120 @@ type OfficeSnapshot = {
   approvals: Approval[];
 };
 
-type OfficeStation = {
+type OfficeRoom = {
   id: string;
   title: string;
-  description: string;
-  icon: typeof Bot;
-  tone: 'default' | 'success' | 'warning' | 'danger';
+  subtitle: string;
+  accent: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
   agents: Agent[];
   tasks: Task[];
 };
 
-const stationDefinitions: Array<Pick<OfficeStation, 'id' | 'title' | 'description' | 'icon' | 'tone'>> = [
-  {
-    id: 'arquitectura',
-    title: 'Mesa de arquitectura',
-    description: 'Define estructura, contratos y dirección técnica general del sistema.',
-    icon: Sparkles,
-    tone: 'default',
-  },
-  {
-    id: 'ejecucion',
-    title: 'Línea de ejecución',
-    description: 'Empuja implementación activa, coordinación técnica y entrega operativa.',
-    icon: ClipboardList,
-    tone: 'success',
-  },
-  {
-    id: 'calidad',
-    title: 'Control de calidad',
-    description: 'Revisa estado, trazabilidad y señales de error o trabajo sensible.',
-    icon: ShieldAlert,
-    tone: 'warning',
-  },
-  {
-    id: 'integraciones',
-    title: 'Núcleo de integraciones',
-    description: 'Conecta capacidades, skills y servicios externos para ampliar el sistema.',
-    icon: Waypoints,
-    tone: 'default',
-  },
-];
-
-function buildOfficeStations(snapshot: OfficeSnapshot): OfficeStation[] {
-  return stationDefinitions.map((station, index) => {
-    const agents = snapshot.agents.filter((agent) => {
-      const source = `${agent.agent_type} ${agent.description} ${agent.name}`.toLowerCase();
-      if (station.id === 'arquitectura') return source.includes('architect') || source.includes('design') || source.includes('orchestr');
-      if (station.id === 'ejecucion') return source.includes('executor') || source.includes('build') || source.includes('engineer');
-      if (station.id === 'calidad') return source.includes('observer') || source.includes('audit') || source.includes('qa');
-      return source.includes('mcp') || source.includes('integration') || source.includes('backend') || source.includes('database');
-    });
-
-    const tasks = snapshot.tasks.filter((task) => {
-      const source = `${task.task_type} ${task.title} ${task.description}`.toLowerCase();
-      if (station.id === 'arquitectura') return source.includes('design') || source.includes('architecture') || source.includes('governance');
-      if (station.id === 'ejecucion') return source.includes('frontend') || source.includes('backend') || source.includes('fullstack') || task.status === 'running';
-      if (station.id === 'calidad') return source.includes('audit') || source.includes('review') || task.status === 'failed' || task.status === 'awaiting_approval';
-      return source.includes('mcp') || source.includes('database') || source.includes('integration');
-    });
-
-    const selectedAgents = agents.length > 0 ? agents : snapshot.agents.filter((_, agentIndex) => agentIndex % stationDefinitions.length === index).slice(0, 2);
-    const selectedTasks = tasks.length > 0 ? tasks : snapshot.tasks.filter((_, taskIndex) => taskIndex % stationDefinitions.length === index).slice(0, 2);
-
-    return {
-      ...station,
-      agents: selectedAgents,
-      tasks: selectedTasks,
-    };
-  });
+function pickRoomAgents(snapshot: OfficeSnapshot, predicate: (agent: Agent) => boolean, fallbackOffset: number) {
+  const selected = snapshot.agents.filter(predicate);
+  return selected.length > 0 ? selected.slice(0, 3) : snapshot.agents.slice(fallbackOffset, fallbackOffset + 3);
 }
 
-function deriveInteractionFeed(snapshot: OfficeSnapshot) {
-  return snapshot.tasks.slice(0, 6).map((task, index) => {
-    const leadSkill = snapshot.skills.find((skill) => skill.id === task.lead_skill_id);
-    const run = snapshot.runs.find((item) => item.task_id === task.id);
-    const approval = snapshot.approvals.find((item) => item.task_id === task.id && item.status === 'pending');
+function pickRoomTasks(snapshot: OfficeSnapshot, predicate: (task: Task) => boolean, fallbackOffset: number) {
+  const selected = snapshot.tasks.filter(predicate);
+  return selected.length > 0 ? selected.slice(0, 2) : snapshot.tasks.slice(fallbackOffset, fallbackOffset + 2);
+}
 
-    return {
-      id: task.id,
-      title: task.title,
-      status: task.status,
-      source: leadSkill?.canonical_name ?? 'coordinación interna',
-      destination: approval ? 'bandeja de aprobaciones' : run ? 'motor de ejecución' : 'cola operativa',
-      summary: approval
-        ? 'La tarea requiere decisión humana antes de seguir avanzando.'
-        : run
-          ? `La tarea ya generó una ejecución en modo ${formatDisplayText(run.execution_mode)}.`
-          : 'La tarea todavía está coordinándose dentro de la oficina digital.',
-      timestamp: run?.executed_at ?? task.started_at ?? task.created_at,
-      index,
-    };
-  });
+function deriveRooms(snapshot: OfficeSnapshot): OfficeRoom[] {
+  return [
+    {
+      id: 'war-room',
+      title: 'Sala de estrategia',
+      subtitle: 'Arquitectura, coordinación y decisiones centrales.',
+      accent: 'from-fuchsia-500/60 to-violet-500/30',
+      x: 0,
+      y: 0,
+      w: 7,
+      h: 4,
+      agents: pickRoomAgents(snapshot, (agent) => /architect|orchestr|design/i.test(`${agent.agent_type} ${agent.description}`), 0),
+      tasks: pickRoomTasks(snapshot, (task) => /design|architecture|governance/i.test(`${task.task_type} ${task.title}`), 0),
+    },
+    {
+      id: 'build-bay',
+      title: 'Bahía de ejecución',
+      subtitle: 'Implementación, runs y entrega activa.',
+      accent: 'from-sky-500/60 to-cyan-500/30',
+      x: 7,
+      y: 0,
+      w: 5,
+      h: 3,
+      agents: pickRoomAgents(snapshot, (agent) => /engineer|executor|build/i.test(`${agent.agent_type} ${agent.description}`), 1),
+      tasks: pickRoomTasks(snapshot, (task) => task.status === 'running' || /frontend|backend|fullstack/i.test(`${task.task_type} ${task.title}`), 1),
+    },
+    {
+      id: 'quality-pod',
+      title: 'Pod de control',
+      subtitle: 'Aprobaciones, auditoría y revisión sensible.',
+      accent: 'from-amber-500/60 to-orange-500/30',
+      x: 12,
+      y: 0,
+      w: 4,
+      h: 5,
+      agents: pickRoomAgents(snapshot, (agent) => /observer|review|audit|qa/i.test(`${agent.agent_type} ${agent.description}`), 2),
+      tasks: pickRoomTasks(snapshot, (task) => task.status === 'awaiting_approval' || task.status === 'failed', 2),
+    },
+    {
+      id: 'integration-lab',
+      title: 'Laboratorio de integraciones',
+      subtitle: 'MCP, skills y enlaces con plataforma.',
+      accent: 'from-emerald-500/60 to-teal-500/30',
+      x: 0,
+      y: 4,
+      w: 6,
+      h: 4,
+      agents: pickRoomAgents(snapshot, (agent) => /mcp|backend|database|integration/i.test(`${agent.agent_type} ${agent.description}`), 3),
+      tasks: pickRoomTasks(snapshot, (task) => /mcp|database|integration/i.test(`${task.task_type} ${task.title}`), 3),
+    },
+    {
+      id: 'focus-desks',
+      title: 'Zona de enfoque',
+      subtitle: 'Tareas individuales en curso y coordinación fina.',
+      accent: 'from-rose-500/60 to-pink-500/30',
+      x: 6,
+      y: 3,
+      w: 6,
+      h: 5,
+      agents: snapshot.agents.filter((agent) => agent.status === 'active').slice(0, 3),
+      tasks: snapshot.tasks.filter((task) => task.status === 'queued' || task.status === 'pending').slice(0, 2),
+    },
+    {
+      id: 'observability',
+      title: 'Centro de observabilidad',
+      subtitle: 'Monitoreo de salud, logs y estado vivo.',
+      accent: 'from-indigo-500/60 to-blue-500/30',
+      x: 12,
+      y: 5,
+      w: 4,
+      h: 3,
+      agents: snapshot.agents.slice(0, 2),
+      tasks: snapshot.tasks.slice(0, 2),
+    },
+  ];
+}
+
+function MiniAvatar({ label, status }: { label: string; status: string }) {
+  const initials = label
+    .split(' ')
+    .map((part) => part.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div className="office-avatar">
+      <div className="office-avatar__figure">{initials}</div>
+      <div className={`office-avatar__dot ${status === 'active' ? 'office-avatar__dot--active' : 'office-avatar__dot--idle'}`} />
+    </div>
+  );
 }
 
 export function OfficeDesignPage() {
@@ -134,182 +157,136 @@ export function OfficeDesignPage() {
     void loadOffice();
   }, []);
 
-  const stations = useMemo(() => (snapshot ? buildOfficeStations(snapshot) : []), [snapshot]);
-  const interactionFeed = useMemo(() => (snapshot ? deriveInteractionFeed(snapshot) : []), [snapshot]);
+  const rooms = useMemo(() => (snapshot ? deriveRooms(snapshot) : []), [snapshot]);
+  const pendingApprovals = snapshot?.approvals.filter((item) => item.status === 'pending') ?? [];
+  const activeRuns = snapshot?.runs.filter((item) => item.status === 'running') ?? [];
+  const activeAgents = snapshot?.agents.filter((agent) => agent.status === 'active') ?? [];
+  const activeSkills = snapshot?.skills.filter((skill) => skill.status === 'active') ?? [];
 
   if (error) return <ErrorState message={error} action={<Button onClick={() => void loadOffice()}>Reintentar</Button>} />;
-  if (isLoading) return <LoadingState label="Construyendo oficina digital..." />;
-  if (!snapshot) return <EmptyState title="Sin oficina disponible" description="No se pudo reunir suficiente estado operativo para dibujar la interacción entre agentes." action={<Button onClick={() => void loadOffice()}>Actualizar</Button>} />;
-
-  const activeAgents = snapshot.agents.filter((agent) => agent.status === 'active').length;
-  const activeTasks = snapshot.tasks.filter((task) => task.status === 'running' || task.status === 'queued').length;
-  const pendingApprovals = snapshot.approvals.filter((approval) => approval.status === 'pending').length;
-  const runningRuns = snapshot.runs.filter((run) => run.status === 'running').length;
+  if (isLoading) return <LoadingState label="Construyendo la oficina digital..." />;
+  if (!snapshot) return <EmptyState title="Sin oficina disponible" description="No fue posible reunir el estado operativo necesario para dibujar la oficina." action={<Button onClick={() => void loadOffice()}>Actualizar</Button>} />;
 
   return (
     <PageShell
       title="Diseño de oficina"
-      description="Superficie operativa que representa cómo se distribuyen agentes, tareas, handoffs y decisiones dentro de una oficina digital multiagente."
-      action={<MetricPill label="Estaciones" value={String(stations.length)} tone="info" />}
+      description="Mapa operativo del centro de comando, donde los agentes habitan salas, se reparten trabajo y muestran handoffs entre decisiones humanas y ejecución automática."
+      action={<MetricPill label="Salas" value={String(rooms.length)} tone="info" />}
     >
       <div className="metric-grid">
-        <InfoPanel eyebrow="Agentes" title={`${activeAgents} activos`} description="Personal operativo actualmente disponible en la oficina digital." tone="success" />
-        <InfoPanel eyebrow="Flujo" title={`${activeTasks} tareas vivas`} description="Trabajo en curso o en cola circulando entre estaciones operativas." tone={activeTasks > 0 ? 'warning' : 'default'} />
-        <InfoPanel eyebrow="Aprobaciones" title={`${pendingApprovals} pendientes`} description="Puntos de decisión humana que interrumpen o desbloquean el flujo." tone={pendingApprovals > 0 ? 'warning' : 'success'} />
-        <InfoPanel eyebrow="Ejecuciones" title={`${runningRuns} activas`} description="Procesos ya desplegados en el motor de ejecución del centro de comando." tone={runningRuns > 0 ? 'success' : 'default'} />
+        <InfoPanel eyebrow="Personal activo" title={`${activeAgents.length} agentes disponibles`} description="Agentes visibles en el mapa y listos para ejecutar o coordinar trabajo." tone="success" />
+        <InfoPanel eyebrow="Capacidad viva" title={`${activeRuns.length} ejecuciones en curso`} description="Runs activas moviéndose por la oficina digital en este momento." tone={activeRuns.length > 0 ? 'success' : 'default'} />
+        <InfoPanel eyebrow="Decisión humana" title={`${pendingApprovals.length} bloqueos pendientes`} description="Puntos donde la oficina necesita aprobación antes de seguir avanzando." tone={pendingApprovals.length > 0 ? 'warning' : 'default'} />
       </div>
 
-      <StatsGrid
-        className="summary-grid"
-        items={[
-          {
-            eyebrow: 'Propósito',
-            title: 'Oficina digital viva',
-            description: 'La vista deja de ser solo CRUD y empieza a mostrar cómo se relacionan agentes, tareas y decisiones.',
-            tone: 'default',
-          },
-          {
-            eyebrow: 'Coordinación',
-            title: `${stations.reduce((total, station) => total + station.agents.length, 0)} asignaciones visibles`,
-            description: 'Distribución visible de agentes en estaciones operativas con foco en colaboración y handoffs.',
-            tone: 'success',
-          },
-          {
-            eyebrow: 'Limitación actual',
-            title: 'Simulación basada en datos reales',
-            description: 'La vista deriva relaciones en frontend porque todavía no existe un motor espacial dedicado en backend.',
-            tone: 'warning',
-          },
-        ]}
-      />
+      <div className="grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
+        <SectionCard title="Plano de oficina" subtitle="Vista espacial inspirada en una oficina digital donde cada sala representa una función del sistema multiagente.">
+          <div className="office-board">
+            <div className="office-board__grid" />
+            {rooms.map((room) => (
+              <section
+                key={room.id}
+                className={`office-room bg-gradient-to-br ${room.accent}`}
+                style={{ gridColumn: `${room.x + 1} / span ${room.w}`, gridRow: `${room.y + 1} / span ${room.h}` }}
+              >
+                <div className="office-room__header">
+                  <div>
+                    <p className="office-room__title">{room.title}</p>
+                    <p className="office-room__subtitle">{room.subtitle}</p>
+                  </div>
+                  <span className="office-room__badge">{room.agents.length} agentes</span>
+                </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.12fr_0.88fr]">
-        <SectionCard title="Plano operativo" subtitle="Estaciones de trabajo que distribuyen agentes y tareas por rol dentro de la oficina digital.">
-          <div className="grid gap-4 xl:grid-cols-2">
-            {stations.map((station) => {
-              const Icon = station.icon;
-              return (
-                <article key={station.id} className="surface-muted p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-white">
-                        <Icon className="h-5 w-5" />
+                <div className="office-room__avatars">
+                  {room.agents.map((agent) => (
+                    <div key={agent.id} className="office-room__agent">
+                      <MiniAvatar label={agent.name} status={agent.status} />
+                      <div className="office-room__agent-meta">
+                        <span className="office-room__agent-name">{agent.name}</span>
+                        <span className="office-room__agent-role">{formatDisplayText(agent.agent_type)}</span>
                       </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="office-room__tasks">
+                  {room.tasks.map((task) => (
+                    <div key={task.id} className="office-room__task-chip">
+                      <CircleDot className="h-3.5 w-3.5" />
+                      <span>{task.title}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+
+            <div className="office-flow office-flow--one" />
+            <div className="office-flow office-flow--two" />
+            <div className="office-flow office-flow--three" />
+          </div>
+        </SectionCard>
+
+        <div className="space-y-5">
+          <SectionCard title="Pulso operativo" subtitle="Señales rápidas del estado de la oficina en este momento.">
+            <div className="space-y-3">
+              <div className="surface-muted flex items-start gap-3 p-4">
+                <Cpu className="mt-0.5 h-5 w-5 text-sky-300" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Circuito automático</p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-400">{activeRuns.length > 0 ? `${activeRuns.length} ejecuciones están moviendo trabajo entre salas y módulos.` : 'No hay ejecuciones en curso ahora mismo.'}</p>
+                </div>
+              </div>
+              <div className="surface-muted flex items-start gap-3 p-4">
+                <ShieldAlert className="mt-0.5 h-5 w-5 text-amber-300" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Nodos humanos</p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-400">{pendingApprovals.length > 0 ? `${pendingApprovals.length} aprobaciones están esperando decisión manual.` : 'No hay bloqueos humanos pendientes en la bandeja.'}</p>
+                </div>
+              </div>
+              <div className="surface-muted flex items-start gap-3 p-4">
+                <Sparkles className="mt-0.5 h-5 w-5 text-fuchsia-300" />
+                <div>
+                  <p className="text-sm font-semibold text-white">Capacidades conectadas</p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-400">{activeSkills.length} capacidades activas alimentan el movimiento interno de la oficina.</p>
+                </div>
+              </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard title="Agenda viva" subtitle="Eventos y handoffs que están definiendo el movimiento de la oficina digital.">
+            <div className="space-y-3">
+              {snapshot.tasks.slice(0, 5).map((task) => {
+                const run = snapshot.runs.find((item) => item.task_id === task.id);
+                const approval = snapshot.approvals.find((item) => item.task_id === task.id && item.status === 'pending');
+                return (
+                  <div key={task.id} className="surface-muted p-4">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="text-base font-semibold text-white">{station.title}</h3>
-                        <p className="mt-1 text-sm leading-6 text-zinc-400">{station.description}</p>
+                        <p className="text-sm font-semibold text-white">{task.title}</p>
+                        <p className="mt-1 text-sm leading-6 text-zinc-400">
+                          {approval
+                            ? `Se desvió a decisión humana por ${formatDisplayText(approval.approval_type)}.`
+                            : run
+                              ? `Está recorriendo la oficina a través del motor ${formatDisplayText(run.execution_mode)}.`
+                              : 'Sigue en coordinación interna dentro de la oficina.'}
+                        </p>
                       </div>
+                      <StatusBadge status={task.status} />
                     </div>
-                    <StatusBadge status={station.tone === 'success' ? 'active' : station.tone === 'warning' ? 'pending' : 'connected'} />
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-[16px] border border-white/8 bg-black/20 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Agentes en estación</p>
-                      <div className="mt-3 space-y-2">
-                        {station.agents.length === 0 ? (
-                          <p className="text-sm text-zinc-500">Sin agentes asignados por ahora.</p>
-                        ) : (
-                          station.agents.slice(0, 3).map((agent) => (
-                            <div key={agent.id} className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <p className="text-sm font-medium text-white">{agent.name}</p>
-                                <StatusBadge status={agent.status} />
-                              </div>
-                              <p className="mt-1 text-xs leading-5 text-zinc-400">{formatDisplayText(agent.agent_type)}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-[16px] border border-white/8 bg-black/20 p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Trabajo asociado</p>
-                      <div className="mt-3 space-y-2">
-                        {station.tasks.length === 0 ? (
-                          <p className="text-sm text-zinc-500">Sin tareas ligadas en este momento.</p>
-                        ) : (
-                          station.tasks.slice(0, 3).map((task) => (
-                            <div key={task.id} className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <p className="text-sm font-medium text-white">{task.title}</p>
-                                <StatusBadge status={task.status} />
-                              </div>
-                              <p className="mt-1 text-xs leading-5 text-zinc-400">{formatDisplayText(task.task_type)}</p>
-                            </div>
-                          ))
-                        )}
-                      </div>
+                    <div className="mt-3 flex flex-col gap-1 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+                      <span>{formatDisplayText(task.task_type)}</span>
+                      <span>{formatDateTime(run?.executed_at ?? task.started_at ?? task.created_at)}</span>
                     </div>
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Flujo de interacción" subtitle="Narrativa operativa de cómo se están moviendo handoffs y decisiones entre agentes y módulos.">
-          <div className="space-y-3">
-            {interactionFeed.length === 0 ? (
-              <EmptyState title="Sin interacción visible" description="Todavía no hay suficientes tareas o ejecuciones para construir un flujo de oficina útil." />
-            ) : (
-              interactionFeed.map((interaction) => (
-                <div key={interaction.id} className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                        <CircleDot className="h-3.5 w-3.5" />
-                        <span>{interaction.source}</span>
-                        <GitBranch className="h-3.5 w-3.5" />
-                        <span>{interaction.destination}</span>
-                      </div>
-                      <h3 className="mt-2 text-base font-semibold text-white">{interaction.title}</h3>
-                      <p className="mt-2 text-sm leading-6 text-zinc-400">{interaction.summary}</p>
-                    </div>
-                    <StatusBadge status={interaction.status} />
-                  </div>
-                  <div className="mt-4 flex flex-col gap-1 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
-                    <span>Secuencia #{interaction.index + 1}</span>
-                    <span>{formatDateTime(interaction.timestamp)}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </SectionCard>
+                );
+              })}
+            </div>
+          </SectionCard>
+        </div>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-        <SectionCard title="Nodos humanos y automáticos" subtitle="Lectura de dónde interviene una persona y dónde avanza solo la capa multiagente.">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="surface-muted p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/10 text-amber-300">
-                  <ShieldAlert className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">Bandeja humana</p>
-                  <p className="text-xs leading-5 text-zinc-400">Validaciones, aprobaciones y desbloqueos manuales.</p>
-                </div>
-              </div>
-              <p className="mt-4 text-3xl font-semibold text-white">{pendingApprovals}</p>
-            </div>
-            <div className="surface-muted p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-300">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">Circuito autónomo</p>
-                  <p className="text-xs leading-5 text-zinc-400">Runs y coordinación que avanzan sin intervención humana directa.</p>
-                </div>
-              </div>
-              <p className="mt-4 text-3xl font-semibold text-white">{runningRuns}</p>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Capacidades activas en la oficina" subtitle="Mapa corto de skills visibles que hoy alimentan la coordinación entre estaciones.">
+      <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+        <SectionCard title="Capacidades que sostienen la oficina" subtitle="Skills activas que hoy soportan la coordinación entre salas y el movimiento de trabajo.">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {snapshot.skills.slice(0, 9).map((skill) => (
               <div key={skill.id} className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
@@ -318,10 +295,33 @@ export function OfficeDesignPage() {
                   <StatusBadge status={skill.status} />
                 </div>
                 <p className="mt-2 text-sm leading-6 text-zinc-400">{skill.description}</p>
-                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-zinc-500">{formatDisplayText(skill.skill_type)}</p>
               </div>
             ))}
           </div>
+        </SectionCard>
+
+        <SectionCard title="Aprobaciones que interrumpen el flujo" subtitle="Momentos donde la oficina detiene automatismos y requiere intervención humana explícita.">
+          {pendingApprovals.length === 0 ? (
+            <EmptyState title="Sin interrupciones humanas" description="La oficina digital no tiene aprobaciones pendientes en este momento." />
+          ) : (
+            <div className="space-y-3">
+              {pendingApprovals.slice(0, 4).map((approval) => (
+                <div key={approval.id} className="surface-muted p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">{formatDisplayText(approval.approval_type)}</p>
+                      <p className="mt-1 text-sm leading-6 text-zinc-400">{approval.reason}</p>
+                    </div>
+                    <StatusBadge status={approval.status} />
+                  </div>
+                  <div className="mt-3 flex flex-col gap-1 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+                    <span>{approval.requested_by}</span>
+                    <span>{approval.task_id ? `Tarea ${approval.task_id.slice(0, 8)}` : 'Sin tarea vinculada'}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
       </div>
     </PageShell>
