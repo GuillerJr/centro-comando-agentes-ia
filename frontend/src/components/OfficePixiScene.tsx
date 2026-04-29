@@ -172,6 +172,7 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
   const [renderVersion, setRenderVersion] = useState(0);
   const [appReady, setAppReady] = useState(0);
+  const resizeTimeoutRef = useRef<number | null>(null);
 
   const zoneSummaries = useMemo(() => buildZoneSummaries(state), [state]);
   const flowLinks = useMemo(() => buildFlowLinks(state), [state]);
@@ -211,17 +212,33 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
       const nextWidth = Math.round(entry.contentRect.width);
       const nextHeight = Math.round(entry.contentRect.height);
       setViewport((current) => current.width === nextWidth && current.height === nextHeight ? current : { width: nextWidth, height: nextHeight });
+      if (resizeTimeoutRef.current) window.clearTimeout(resizeTimeoutRef.current);
+      resizeTimeoutRef.current = window.setTimeout(() => {
+        setRenderVersion((current) => current + 1);
+      }, 120);
     });
 
     observer.observe(host);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (resizeTimeoutRef.current) window.clearTimeout(resizeTimeoutRef.current);
+    };
   }, []);
 
   useEffect(() => {
     const host = hostRef.current;
-    if (!host || viewport.width < 24 || viewport.height < 24 || appRef.current) return undefined;
+    if (!host || viewport.width < 24 || viewport.height < 24) return undefined;
 
     let cancelled = false;
+    if (appRef.current) {
+      if (frameRef.current) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+      appRef.current.destroy(true, { children: false, texture: false });
+      appRef.current = null;
+    }
+    host.innerHTML = '';
     const app = new Application();
 
     void app.init({
@@ -266,7 +283,7 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
         host.removeChild(app.canvas);
       }
     };
-  }, [viewport.height, viewport.width]);
+  }, [renderVersion, viewport.height, viewport.width]);
 
   useEffect(() => {
     const handleVisibility = () => {
