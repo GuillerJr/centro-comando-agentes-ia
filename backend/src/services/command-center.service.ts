@@ -577,6 +577,19 @@ export const commandCenterService = {
     if (!run) throw new AppError('Run not found', 404);
     return run;
   },
+  async updateRunStatus(runId: string, payload: any) {
+    const currentRun = await commandCenterRepository.getRunById(runId);
+    if (!currentRun) throw new AppError('Run not found', 404);
+    const updated = await commandCenterRepository.updateRun(runId, {
+      status: payload.status,
+      durationMs: currentRun.duration_ms,
+      outputSummary: payload.outputSummary ?? currentRun.output_summary,
+      errorMessage: payload.errorMessage ?? currentRun.error_message,
+      rawLogs: currentRun.raw_logs,
+    });
+    if (!updated) throw new AppError('Run not found', 404);
+    return updated;
+  },
   async getTaskRuns(taskId: string) {
     await this.getTaskById(taskId);
     return commandCenterRepository.getTaskRuns(taskId);
@@ -596,6 +609,11 @@ export const commandCenterService = {
     const approval = await commandCenterRepository.reviewApproval(approvalId, 'rejected', payload);
     if (!approval) throw new AppError('Approval not found', 404);
     return approval;
+  },
+  async executeApproval(approvalId: string, payload: any) {
+    const existing = await commandCenterRepository.reviewApproval(approvalId, 'approved', payload);
+    if (!existing) throw new AppError('Approval not found', 404);
+    return commandCenterRepository.markApprovalExecuted(approvalId);
   },
   async listAuditLogs() {
     return commandCenterRepository.getAuditLogs();

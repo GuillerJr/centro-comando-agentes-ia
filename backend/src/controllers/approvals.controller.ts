@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { approvalIdParamsSchema, createApprovalSchema, reviewApprovalSchema } from '../schemas/approval.schemas.js';
+import { approvalIdParamsSchema, createApprovalSchema, executeApprovalSchema, reviewApprovalSchema } from '../schemas/approval.schemas.js';
 import { commandCenterService } from '../services/command-center.service.js';
 import { successResponse } from '../utils/api.js';
 
@@ -24,5 +24,11 @@ export const approvalsController = {
     const payload = reviewApprovalSchema.parse(request.body);
     const data = await commandCenterService.rejectApproval(approvalId, payload);
     return response.json(successResponse('Approval rejected', data));
+  },
+  async execute(request: Request, response: Response) {
+    const { approvalId } = approvalIdParamsSchema.parse(request.params);
+    const payload = executeApprovalSchema.parse(request.body);
+    const data = await commandCenterService.executeApproval(approvalId, payload);
+    return response.json(successResponse('Approval executed', data));
   },
 };

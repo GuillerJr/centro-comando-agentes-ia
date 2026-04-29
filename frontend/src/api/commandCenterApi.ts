@@ -29,11 +29,13 @@ export const commandCenterApi = {
 
   getTaskRunsAll: () => apiRequest<TaskRun[]>('/task-runs'),
   getRun: (runId: string) => apiRequest<TaskRun>(`/task-runs/${runId}`),
+  updateRunStatus: (runId: string, payload: unknown) => apiRequest<TaskRun>(`/task-runs/${runId}/status`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
   getApprovals: () => apiRequest<Approval[]>('/approvals'),
   createApproval: (payload: unknown) => apiRequest<Approval>('/approvals', { method: 'POST', body: JSON.stringify(payload) }),
   approveApproval: (approvalId: string, payload: unknown) => apiRequest<Approval>(`/approvals/${approvalId}/approve`, { method: 'PATCH', body: JSON.stringify(payload) }),
   rejectApproval: (approvalId: string, payload: unknown) => apiRequest<Approval>(`/approvals/${approvalId}/reject`, { method: 'PATCH', body: JSON.stringify(payload) }),
+  executeApproval: (approvalId: string, payload: unknown) => apiRequest<Approval>(`/approvals/${approvalId}/execute`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
   getAuditLogs: () => apiRequest<AuditLog[]>('/audit-logs'),
 

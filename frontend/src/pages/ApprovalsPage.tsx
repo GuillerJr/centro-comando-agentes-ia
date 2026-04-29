@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
-import { ActionFeedback, ApprovalPanel, DataTable, DetailList, EmptyState, ErrorState, formatDisplayText, formatValue, LoadingState, MetricPill, PageShell, StatsGrid, StatusBadge } from '../components/ui';
+import { ActionFeedback, DataTable, EmptyState, ErrorState, formatDisplayText, formatValue, LoadingState, MetricPill, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { Approval } from '../types/domain';
 
 export function ApprovalsPage() {
@@ -28,17 +28,21 @@ export function ApprovalsPage() {
     void loadApprovals();
   }, []);
 
-  const handleDecision = async (approvalId: string, decision: 'approve' | 'reject') => {
+  const handleDecision = async (approval: Approval, decision: 'approve' | 'reject' | 'execute') => {
     try {
-      setProcessingId(approvalId);
+      setProcessingId(approval.id);
       setActionError(null);
       setFeedback(null);
+      const payload = { reviewedBy: 'Guiller', executionNotes: decision === 'execute' ? 'Ejecutado desde UI' : decision === 'approve' ? 'Aprobado desde UI' : 'Rechazado desde UI' };
       if (decision === 'approve') {
-        await commandCenterApi.approveApproval(approvalId, { reviewedBy: 'Guiller', executionNotes: 'Aprobado desde UI' });
+        await commandCenterApi.approveApproval(approval.id, payload);
         setFeedback('La aprobación se marcó como aprobada.');
-      } else {
-        await commandCenterApi.rejectApproval(approvalId, { reviewedBy: 'Guiller', executionNotes: 'Rechazado desde UI' });
+      } else if (decision === 'reject') {
+        await commandCenterApi.rejectApproval(approval.id, payload);
         setFeedback('La aprobación se marcó como rechazada.');
+      } else {
+        await commandCenterApi.executeApproval(approval.id, payload);
+        setFeedback('La aprobación se marcó como ejecutada.');
       }
       await loadApprovals();
     } catch (reason) {
@@ -57,7 +61,7 @@ export function ApprovalsPage() {
   return (
     <PageShell
       title="Aprobaciones"
-      description="Punto de control para operaciones sensibles, decisiones manuales y trazabilidad explícita."
+      description="Punto de control para operaciones sensibles, decisiones manuales y cierre operativo explícito."
       action={<MetricPill label="Pendientes" value={String(pendingCount)} tone={pendingCount > 0 ? 'info' : 'success'} />}
     >
       {actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
@@ -72,45 +76,32 @@ export function ApprovalsPage() {
       />
 
       <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.2fr)_22rem]">
-        <ApprovalPanel>
+        <SectionCard title="Bandeja de aprobaciones" subtitle="Gestión de aprobar, rechazar y ejecutar desde tabla compacta.">
           <DataTable
-            columns={['Tipo', 'Solicitado por', 'Estado', 'Motivo', 'Acciones']}
+            columns={['Tipo', 'Solicitado por', 'Estado', 'Motivo', 'Payload', 'Acciones']}
             rows={approvals.map((approval) => [
               <div className="text-sm font-medium text-white">{formatDisplayText(approval.approval_type)}</div>,
               <div className="text-sm text-zinc-300">{approval.requested_by}</div>,
               <StatusBadge status={approval.status} />,
               <div className="text-sm leading-6 text-zinc-400">{approval.reason}</div>,
-              approval.status === 'pending' ? (
-                <div className="flex w-full min-w-0 flex-col gap-2">
-                  <Button size="sm" variant="success" fullWidth disabled={processingId === approval.id} onClick={() => void handleDecision(approval.id, 'approve')}>
-                    Aprobar
-                  </Button>
-                  <Button size="sm" variant="danger" fullWidth disabled={processingId === approval.id} onClick={() => void handleDecision(approval.id, 'reject')}>
-                    Rechazar
-                  </Button>
-                </div>
-              ) : (
-                <span className="text-xs uppercase tracking-[0.16em] text-zinc-500">Resuelta</span>
-              ),
+              <pre className="max-w-[16rem] overflow-x-auto whitespace-pre-wrap text-[11px] text-zinc-500">{formatValue(approval.payload_summary)}</pre>,
+              approval.status === 'pending' ? <div className="flex flex-wrap gap-2"><Button size="sm" variant="success" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'approve')}>Aprobar</Button><Button size="sm" variant="danger" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'reject')}>Rechazar</Button></div> : approval.status === 'approved' ? <Button size="sm" variant="secondary" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'execute')}>Ejecutar</Button> : <span className="text-xs uppercase tracking-[0.16em] text-zinc-500">Cerrada</span>,
             ])}
           />
-        </ApprovalPanel>
+        </SectionCard>
 
-        <ApprovalPanel>
-          <div className="space-y-4">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Marco operativo</p>
-            {latestApproval ? (
-              <DetailList
-                items={[
-                  { label: 'Último tipo', value: formatDisplayText(latestApproval.approval_type) },
-                  { label: 'Solicitante', value: latestApproval.requested_by },
-                  { label: 'Estado', value: <StatusBadge status={latestApproval.status} /> },
-                  { label: 'Payload', value: <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">{formatValue(latestApproval.payload_summary)}</pre> },
-                ]}
-              />
-            ) : <EmptyState title="Sin aprobaciones recientes" description="Todavía no hay solicitudes para resumir en este panel lateral." />}
-          </div>
-        </ApprovalPanel>
+        <SectionCard title="Marco operativo" subtitle="Resumen del último registro visible con su contexto de control.">
+          {latestApproval ? <DataTable
+            columns={['Campo', 'Valor']}
+            rows={[
+              ['Último tipo', formatDisplayText(latestApproval.approval_type)],
+              ['Solicitante', latestApproval.requested_by],
+              ['Estado', <StatusBadge status={latestApproval.status} />],
+              ['Notas', <div className="text-sm leading-6 text-zinc-400">{latestApproval.execution_notes ?? 'Sin notas todavía'}</div>],
+              ['Payload', <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">{formatValue(latestApproval.payload_summary)}</pre>],
+            ]}
+          /> : <EmptyState title="Sin aprobaciones recientes" description="Todavía no hay solicitudes para resumir en este panel lateral." />}
+        </SectionCard>
       </div>
     </PageShell>
   );

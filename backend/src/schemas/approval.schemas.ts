@@ -15,3 +15,8 @@ export const reviewApprovalSchema = z.object({
   reviewedBy: z.string().min(2).max(120),
   executionNotes: z.string().max(500).optional().nullable(),
 });
+
+export const executeApprovalSchema = z.object({
+  reviewedBy: z.string().min(2).max(120),
+  executionNotes: z.string().max(500).optional().nullable(),
+});

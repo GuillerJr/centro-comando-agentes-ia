@@ -10,5 +10,6 @@ router.get('/', asyncHandler(approvalsController.list));
 router.post('/', asyncHandler(approvalsController.create));
 router.patch('/:approvalId/approve', asyncHandler(approvalsController.approve));
 router.patch('/:approvalId/reject', asyncHandler(approvalsController.reject));
+router.patch('/:approvalId/execute', asyncHandler(approvalsController.execute));
 
 export default router;

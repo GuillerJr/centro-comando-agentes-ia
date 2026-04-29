@@ -8,5 +8,6 @@ const router = Router();
 router.use(requireFutureAuth);
 router.get('/', asyncHandler(runsController.list));
 router.get('/:runId', asyncHandler(runsController.getById));
+router.patch('/:runId/status', asyncHandler(runsController.updateStatus));
 
 export default router;
