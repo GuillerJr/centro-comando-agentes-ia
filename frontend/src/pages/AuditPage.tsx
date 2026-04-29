@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { DataTable, ErrorState, InfoPanel, LoadingState, PageShell, SectionCard, StatusBadge } from '../components/ui';
+import { DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { AuditLog } from '../types/domain';
 
 export function AuditPage() {
@@ -15,27 +15,37 @@ export function AuditPage() {
   if (!logs) return <LoadingState label="Cargando auditoría..." />;
 
   return (
-    <PageShell title="Audit logs" description="Registro estructurado de acciones, módulos impactados, resultado y severidad para seguimiento operativo y forense.">
-      <div className="grid gap-6 xl:grid-cols-[1.22fr_0.78fr]">
-        <SectionCard title="Audit register" subtitle="Tabla principal de auditoría con enfoque de lectura rápida y priorización de severidad.">
+    <PageShell title="Auditoría" description="Registro estructurado de acciones, módulos impactados, resultado y severidad para seguimiento operativo y forense.">
+      <StatsGrid
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        items={[
+          { eyebrow: 'Eventos', title: `${logs.length} registros`, description: 'Volumen actual de eventos persistidos y visibles en el centro de comando.', tone: 'default' },
+          { eyebrow: 'Criticidad', title: `${logs.filter((log) => log.severity === 'critical' || log.severity === 'error').length} severos`, description: 'Señales que merecen revisión más inmediata por su impacto operativo o técnico.', tone: 'warning' },
+          { eyebrow: 'Trazabilidad', title: 'Línea temporal centralizada', description: 'La auditoría consolida comportamiento del sistema, decisiones y efectos operativos.', tone: 'success' },
+        ]}
+      />
+
+      <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.24fr)_22rem]">
+        <SectionCard title="Registro de auditoría" subtitle="Tabla principal de auditoría con enfoque de lectura rápida y priorización de severidad.">
           <DataTable
-            columns={['Actor', 'Action', 'Module', 'Result', 'Severity', 'Date']}
+            columns={['Actor', 'Acción', 'Módulo', 'Resultado', 'Severidad', 'Fecha']}
             rows={logs.map((log) => [
-              log.actor,
-              <div className="max-w-xs text-sm font-medium text-slate-800">{log.action}</div>,
-              log.module_name,
-              log.result_status,
+              <div className="text-sm text-zinc-300">{log.actor}</div>,
+              <div className="text-sm font-medium text-white">{log.action}</div>,
+              <div className="text-sm text-zinc-300">{log.module_name}</div>,
+              <div className="text-sm text-zinc-300">{formatDisplayText(log.result_status)}</div>,
               <StatusBadge status={log.severity} />,
-              new Date(log.created_at).toLocaleString(),
+              <div className="text-sm text-zinc-400">{new Date(log.created_at).toLocaleString()}</div>,
             ])}
           />
         </SectionCard>
 
-        <div className="grid gap-4">
-          <InfoPanel eyebrow="Events" title={`${logs.length} records`} description="Volumen actual de eventos persistidos y visibles desde la UI del centro de comando." tone="default" />
-          <InfoPanel eyebrow="Criticality" title={`${logs.filter((log) => log.severity === 'critical' || log.severity === 'error').length} high-severity`} description="Señales que merecen revisión más inmediata por su impacto operativo o técnico." tone="warning" />
-          <InfoPanel eyebrow="Traceability" title="Centralized timeline" description="La auditoría funciona como registro de comportamiento del sistema, decisiones y efectos operativos." tone="success" />
-        </div>
+        <SectionCard title="Lectura rápida" subtitle="Puntos de interpretación para separar ruido de eventos relevantes.">
+          <div className="space-y-3">
+            <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">Cruza actor, módulo y resultado para detectar patrones repetidos antes de escalar un incidente.</div>
+            <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">Las severidades altas concentran primero la atención; los eventos informativos ayudan a reconstruir secuencia.</div>
+          </div>
+        </SectionCard>
       </div>
     </PageShell>
   );

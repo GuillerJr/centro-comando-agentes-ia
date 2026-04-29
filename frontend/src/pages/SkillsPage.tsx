@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { DataTable, ErrorState, InfoPanel, LoadingState, PageShell, SectionCard, StatusBadge } from '../components/ui';
+import { Button } from '../components/button';
+import { Input } from '../components/input';
+import { Modal } from '../components/modal';
+import { CreateButton, IconEditButton } from '../components/table-actions';
+import { DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { Skill } from '../types/domain';
 import { skillFormSchema } from '../utils/validation';
 
@@ -9,12 +13,13 @@ export function SkillsPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ canonicalName: '', description: '', skillType: 'operations', whenToUse: '', whenNotToUse: '' });
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadSkills = async () => {
     try {
       setSkills(await commandCenterApi.getSkills());
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No se pudieron cargar las skills.');
+      setError(reason instanceof Error ? reason.message : 'No se pudieron cargar las capacidades.');
     }
   };
 
@@ -23,6 +28,13 @@ export function SkillsPage() {
   const resetForm = () => {
     setForm({ canonicalName: '', description: '', skillType: 'operations', whenToUse: '', whenNotToUse: '' });
     setEditingSkillId(null);
+    setIsModalOpen(false);
+  };
+
+  const openCreate = () => {
+    setEditingSkillId(null);
+    setForm({ canonicalName: '', description: '', skillType: 'operations', whenToUse: '', whenNotToUse: '' });
+    setIsModalOpen(true);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -51,58 +63,59 @@ export function SkillsPage() {
       whenToUse: skill.when_to_use,
       whenNotToUse: skill.when_not_to_use,
     });
+    setIsModalOpen(true);
   };
 
   if (error) return <ErrorState message={error} />;
-  if (!skills) return <LoadingState label="Cargando skills..." />;
+  if (!skills) return <LoadingState label="Cargando capacidades..." />;
 
   return (
-    <PageShell title="Skills registry" description="Catálogo gobernado de skills con criterios de uso, restricciones y calidad visible en formato más operativo.">
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <SectionCard title="Skills inventory" subtitle="Vista tipo registro para revisar el catálogo sin depender de cards sueltas.">
-          <DataTable
-            columns={['Canonical', 'Type', 'Status', 'When to use', 'Actions']}
-            rows={skills.map((skill) => [
-              <div className="max-w-xs"><p className="text-sm font-semibold text-slate-800">{skill.canonical_name}</p><p className="mt-1 text-xs text-slate-400">{skill.conversational_alias ?? 'sin alias'}</p></div>,
-              skill.skill_type,
-              <StatusBadge status={skill.status} />,
-              <div className="max-w-md text-sm leading-6 text-slate-600">{skill.when_to_use}</div>,
-              <button className="rounded-2xl border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600" onClick={() => startEdit(skill)}>Editar</button>,
-            ])}
-          />
-        </SectionCard>
+    <PageShell title="Capacidades" description="Registro canónico de capacidades, límites y criterio de uso dentro del sistema multi-agente.">
+      <StatsGrid
+        className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+        items={[
+          { eyebrow: 'Inventario', title: `${skills.length} visibles`, description: 'Capacidades activas y visibles dentro del centro de comando.', tone: 'default' },
+          { eyebrow: 'Gobernanza', title: 'Catálogo canónico aplicado', description: 'La operación se apoya en un lenguaje común, límites explícitos y semántica consistente.', tone: 'success' },
+          { eyebrow: 'Cobertura', title: `${new Set(skills.map((skill) => skill.skill_type)).size} dominios`, description: 'Áreas funcionales cubiertas por el catálogo disponible.', tone: 'default' },
+        ]}
+      />
 
-        <div className="space-y-6">
-          <SectionCard title={editingSkillId ? 'Editar skill' : 'Registrar skill'} subtitle="Panel lateral de mantenimiento de la taxonomía y el criterio de uso.">
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <input className="panel-input" placeholder="Nombre canónico" value={form.canonicalName} onChange={(event) => setForm((current) => ({ ...current, canonicalName: event.target.value }))} />
-              <textarea className="panel-input" rows={3} placeholder="Descripción" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
-              <select className="panel-input" value={form.skillType} onChange={(event) => setForm((current) => ({ ...current, skillType: event.target.value }))}>
-                <option value="governance">governance</option>
-                <option value="architecture">architecture</option>
-                <option value="frontend">frontend</option>
-                <option value="backend">backend</option>
-                <option value="database">database</option>
-                <option value="mcp">mcp</option>
-                <option value="ui">ui</option>
-                <option value="fullstack">fullstack</option>
-                <option value="operations">operations</option>
-              </select>
-              <textarea className="panel-input" rows={3} placeholder="Cuándo usarla" value={form.whenToUse} onChange={(event) => setForm((current) => ({ ...current, whenToUse: event.target.value }))} />
-              <textarea className="panel-input" rows={3} placeholder="Cuándo no usarla" value={form.whenNotToUse} onChange={(event) => setForm((current) => ({ ...current, whenNotToUse: event.target.value }))} />
-              <div className="flex flex-wrap gap-3">
-                <button className="rounded-2xl bg-blue-600 px-4 py-3 font-semibold text-white" type="submit">{editingSkillId ? 'Guardar cambios' : 'Registrar skill'}</button>
-                {editingSkillId ? <button className="rounded-2xl border border-slate-200 px-4 py-3 font-semibold text-slate-600" type="button" onClick={resetForm}>Cancelar</button> : null}
-              </div>
-            </form>
-          </SectionCard>
+      <SectionCard title="Registro de capacidades" subtitle="Gestión centralizada mediante tabla y modales." action={<CreateButton label="Crear capacidad" onClick={openCreate} />}>
+        <DataTable
+          columns={['Canónico', 'Tipo', 'Estado', 'Uso', 'Acciones']}
+          rows={skills.map((skill) => [
+            <div className="max-w-xs"><p className="text-sm font-semibold text-white">{skill.canonical_name}</p><p className="mt-1 text-xs text-zinc-500">{skill.conversational_alias ?? 'sin alias'}</p></div>,
+            <span className="text-sm text-zinc-300">{formatDisplayText(skill.skill_type)}</span>,
+            <StatusBadge status={skill.status} />,
+            <div className="max-w-md text-sm leading-6 text-zinc-400">{skill.when_to_use}</div>,
+            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(skill)} /></div>,
+          ])}
+        />
+      </SectionCard>
 
-          <div className="grid gap-4">
-            <InfoPanel eyebrow="Governance" title={`${skills.length} skills visibles`} description="Inventario total de skills gobernadas actualmente por el centro de comando." tone="default" />
-            <InfoPanel eyebrow="Structure" title="Menos cards, más registro" description="Se prioriza lectura compacta y mantenimiento operativo en vez de composición ornamental." tone="success" />
+      <Modal open={isModalOpen} onOpenChange={setIsModalOpen} title={editingSkillId ? 'Editar capacidad' : 'Crear capacidad'} description="Formulario compacto para alta o edición del catálogo.">
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <Input placeholder="Nombre canónico" value={form.canonicalName} onChange={(event) => setForm((current) => ({ ...current, canonicalName: event.target.value }))} />
+          <textarea className="panel-input min-h-[96px]" placeholder="Descripción" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+          <select className="panel-input" value={form.skillType} onChange={(event) => setForm((current) => ({ ...current, skillType: event.target.value }))}>
+            <option value="governance">gobernanza</option>
+            <option value="architecture">arquitectura</option>
+            <option value="frontend">frontend</option>
+            <option value="backend">backend</option>
+            <option value="database">base de datos</option>
+            <option value="mcp">MCP</option>
+            <option value="ui">interfaz</option>
+            <option value="fullstack">full stack</option>
+            <option value="operations">operaciones</option>
+          </select>
+          <textarea className="panel-input min-h-[92px]" placeholder="Cuándo usar" value={form.whenToUse} onChange={(event) => setForm((current) => ({ ...current, whenToUse: event.target.value }))} />
+          <textarea className="panel-input min-h-[92px]" placeholder="Cuándo no usar" value={form.whenNotToUse} onChange={(event) => setForm((current) => ({ ...current, whenNotToUse: event.target.value }))} />
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit">{editingSkillId ? 'Guardar cambios' : 'Crear capacidad'}</Button>
+            <Button type="button" variant="secondary" onClick={resetForm}>Cancelar</Button>
           </div>
-        </div>
-      </div>
+        </form>
+      </Modal>
     </PageShell>
   );
 }

@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/card';
 import { Input } from '../components/input';
-import { ConfirmDialog, DataTable, ErrorState, InfoPanel, LoadingState, PageShell, SectionCard, StatusBadge } from '../components/ui';
+import { Modal } from '../components/modal';
+import { CreateButton, IconEditButton } from '../components/table-actions';
+import { ConfirmDialog, DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { Task } from '../types/domain';
 import { taskFormSchema } from '../utils/validation';
 
@@ -13,6 +14,7 @@ export function TasksPage() {
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', description: '', priority: 'medium', taskType: 'fullstack', requestedAction: '' });
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const loadTasks = async () => {
     try {
@@ -27,6 +29,13 @@ export function TasksPage() {
   const resetForm = () => {
     setForm({ title: '', description: '', priority: 'medium', taskType: 'fullstack', requestedAction: '' });
     setEditingTaskId(null);
+    setIsModalOpen(false);
+  };
+
+  const openCreate = () => {
+    setEditingTaskId(null);
+    setForm({ title: '', description: '', priority: 'medium', taskType: 'fullstack', requestedAction: '' });
+    setIsModalOpen(true);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -55,6 +64,7 @@ export function TasksPage() {
       taskType: task.task_type,
       requestedAction: String((task as unknown as { metadata?: { requestedAction?: string } }).metadata?.requestedAction ?? ''),
     });
+    setIsModalOpen(true);
   };
 
   const cancelTask = async (taskId: string) => {
@@ -66,65 +76,59 @@ export function TasksPage() {
   if (!tasks) return <LoadingState label="Cargando tareas..." />;
 
   return (
-    <PageShell title="Tasks" description="Planeación, ejecución y seguimiento de trabajo operativo sobre OpenClaw y la capa de gobierno superior." action={<ConfirmDialog title="Control de seguridad" description="Acciones sensibles deben pasar por aprobaciones antes de ejecutarse." />}>
-      <div className="grid gap-6 xl:grid-cols-[0.84fr_1.16fr]">
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingTaskId ? 'Edit task' : 'Create task'}</CardTitle>
-            <CardDescription>Define prioridad, tipo y acción con claridad antes de disparar ejecución.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <Input placeholder="Title" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
-              <textarea className="panel-input min-h-[120px]" placeholder="Description" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
-              <div className="grid gap-4 md:grid-cols-2">
-                <select className="panel-input" value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}>
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
-                  <option value="critical">critical</option>
-                </select>
-                <select className="panel-input" value={form.taskType} onChange={(event) => setForm((current) => ({ ...current, taskType: event.target.value }))}>
-                  <option value="frontend">frontend</option>
-                  <option value="backend">backend</option>
-                  <option value="database">database</option>
-                  <option value="mcp">mcp</option>
-                  <option value="fullstack">fullstack</option>
-                  <option value="infrastructure">infrastructure</option>
-                  <option value="documentation">documentation</option>
-                </select>
-              </div>
-              <textarea className="panel-input min-h-[110px]" placeholder="Requested action" value={form.requestedAction} onChange={(event) => setForm((current) => ({ ...current, requestedAction: event.target.value }))} />
-              <div className="flex flex-wrap gap-3">
-                <Button type="submit">{editingTaskId ? 'Save task' : 'Create and run'}</Button>
-                {editingTaskId ? <Button type="button" variant="secondary" onClick={resetForm}>Cancel</Button> : null}
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+    <PageShell title="Tareas" description="Planeación, ejecución y seguimiento de trabajo operativo sobre OpenClaw y la capa de gobierno superior." action={<ConfirmDialog title="Control de seguridad" description="Acciones sensibles deben pasar por aprobaciones antes de ejecutarse." />}>
+      <StatsGrid
+        className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"
+        items={[
+          { eyebrow: 'En curso', title: `${tasks.filter((task) => task.status === 'running').length} activas`, description: 'Tareas actualmente en curso y con seguimiento operativo.', tone: 'success' },
+          { eyebrow: 'Pendientes', title: `${tasks.filter((task) => task.status === 'pending').length}`, description: 'Trabajo listo para ejecutar o revisar antes de correr.', tone: 'default' },
+          { eyebrow: 'Completadas', title: `${tasks.filter((task) => task.status === 'completed').length}`, description: 'Historial reciente de tareas concluidas correctamente.', tone: 'default' },
+          { eyebrow: 'Críticas', title: `${tasks.filter((task) => task.priority === 'critical' || task.priority === 'high').length} prioritarias`, description: 'Carga que conviene atender antes de abrir nuevos frentes secundarios.', tone: 'warning' },
+        ]}
+      />
 
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
-            <InfoPanel eyebrow="Running" title={`${tasks.filter((task) => task.status === 'running').length} active`} description="Tareas actualmente en curso y con seguimiento operativo." tone="success" />
-            <InfoPanel eyebrow="Pending" title={`${tasks.filter((task) => task.status === 'pending').length}`} description="Trabajo listo para ejecutar o revisar antes de correr." tone="default" />
-            <InfoPanel eyebrow="Completed" title={`${tasks.filter((task) => task.status === 'completed').length}`} description="Historial reciente de tareas concluidas correctamente." tone="default" />
+      <SectionCard title="Cola de tareas" subtitle="Gestión centralizada con tabla, acciones compactas y modales." action={<CreateButton label="Crear tarea" onClick={openCreate} />}>
+        <DataTable
+          columns={['Título', 'Prioridad', 'Tipo', 'Estado', 'Detalle', 'Acciones']}
+          rows={tasks.map((task) => [
+            <div className="max-w-xs text-sm font-semibold text-white">{task.title}</div>,
+            <span className="text-sm text-zinc-300">{formatDisplayText(task.priority)}</span>,
+            <span className="text-sm text-zinc-300">{formatDisplayText(task.task_type)}</span>,
+            <StatusBadge status={task.status} />,
+            <Link className="text-blue-300 hover:text-blue-200" to={`/tasks/${task.id}`}>Ver detalle</Link>,
+            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(task)} /><Button size="icon" variant="danger" onClick={() => void cancelTask(task.id)} title="Cancelar">✕</Button></div>,
+          ])}
+        />
+      </SectionCard>
+
+      <Modal open={isModalOpen} onOpenChange={setIsModalOpen} title={editingTaskId ? 'Editar tarea' : 'Crear tarea'} description="Formulario compacto para alta o edición de tareas.">
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <Input placeholder="Título" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} />
+          <textarea className="panel-input min-h-[120px]" placeholder="Descripción" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <select className="panel-input" value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))}>
+              <option value="low">baja</option>
+              <option value="medium">media</option>
+              <option value="high">alta</option>
+              <option value="critical">crítica</option>
+            </select>
+            <select className="panel-input" value={form.taskType} onChange={(event) => setForm((current) => ({ ...current, taskType: event.target.value }))}>
+              <option value="frontend">frontend</option>
+              <option value="backend">backend</option>
+              <option value="database">base de datos</option>
+                <option value="mcp">MCP</option>
+                <option value="fullstack">full stack</option>
+              <option value="infrastructure">infraestructura</option>
+              <option value="documentation">documentación</option>
+            </select>
           </div>
-
-          <SectionCard title="Task queue" subtitle="Vista principal de tareas con acceso rápido a detalle y acciones operativas.">
-            <DataTable
-              columns={['Title', 'Priority', 'Type', 'Status', 'Detail', 'Actions']}
-              rows={tasks.map((task) => [
-                <div className="max-w-xs text-sm font-semibold text-slate-800">{task.title}</div>,
-                task.priority,
-                task.task_type,
-                <StatusBadge status={task.status} />,
-                <Link className="text-blue-600 hover:text-blue-700" to={`/tasks/${task.id}`}>View detail</Link>,
-                <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={() => startEdit(task)}>Edit</Button><Button size="sm" variant="danger" onClick={() => void cancelTask(task.id)}>Cancel</Button></div>,
-              ])}
-            />
-          </SectionCard>
-        </div>
-      </div>
+          <textarea className="panel-input min-h-[110px]" placeholder="Acción solicitada" value={form.requestedAction} onChange={(event) => setForm((current) => ({ ...current, requestedAction: event.target.value }))} />
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit">{editingTaskId ? 'Guardar tarea' : 'Crear y ejecutar'}</Button>
+            <Button type="button" variant="secondary" onClick={resetForm}>Cancelar</Button>
+          </div>
+        </form>
+      </Modal>
     </PageShell>
   );
 }

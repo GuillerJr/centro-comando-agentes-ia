@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { DataTable, ErrorState, InfoPanel, LoadingState, PageShell, SectionCard, StatusBadge } from '../components/ui';
+import { DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { McpServer, McpTool } from '../types/domain';
 
 export function McpPage() {
@@ -21,27 +21,41 @@ export function McpPage() {
   if (!servers || !tools) return <LoadingState label="Cargando MCP..." />;
 
   return (
-    <PageShell title="MCP workspace" description="Inventario de servidores MCP, tools expuestas, permisos y preparación de extensibilidad para el centro de comando.">
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <SectionCard title="Servers" subtitle="Vista principal de servidores MCP registrados y su estado operativo.">
+    <PageShell title="Espacio MCP" description="Inventario de servidores MCP, herramientas expuestas, permisos y preparación de extensibilidad para el centro de comando.">
+      <StatsGrid
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"
+        items={[
+          { eyebrow: 'Servidores', title: `${servers.length} registrados`, description: 'Cantidad de servidores MCP conocidos por el sistema en este despliegue.', tone: 'default' },
+          { eyebrow: 'Herramientas', title: `${tools.length} visibles`, description: 'Herramientas reflejadas en la interfaz como parte de la preparación MCP.', tone: 'success' },
+          { eyebrow: 'Conectados', title: `${servers.filter((server) => server.status === 'connected').length} activos`, description: 'Servidores disponibles ahora mismo para interoperar con el centro de comando.', tone: 'success' },
+          { eyebrow: 'Permisos', title: `${new Set(tools.map((tool) => tool.permission_level)).size} niveles`, description: 'Diversidad actual de permisos visibles en la capa MCP.', tone: 'default' },
+        ]}
+      />
+
+      <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.14fr)_minmax(0,0.86fr)]">
+        <SectionCard title="Servidores" subtitle="Vista principal de servidores MCP registrados y su estado operativo.">
           <DataTable
-            columns={['Server', 'Status', 'Transport', 'Endpoint']}
-            rows={servers.map((server) => [server.name, <StatusBadge status={server.status} />, server.transport_type, <div className="max-w-xs text-sm leading-6 text-slate-600">{server.endpoint ?? 'n/a'}</div>])}
+            columns={['Servidor', 'Estado', 'Transporte', 'Endpoint']}
+            rows={servers.map((server) => [
+              <div className="text-sm font-medium text-white">{server.name}</div>,
+              <StatusBadge status={server.status} />,
+              <div className="text-sm text-zinc-300">{formatDisplayText(server.transport_type)}</div>,
+              <div className="break-all text-sm leading-6 text-zinc-400">{server.endpoint ?? 'no disponible'}</div>,
+            ])}
           />
         </SectionCard>
 
-        <div className="space-y-6">
-          <SectionCard title="Tools" subtitle="Tools conocidas por la capa MCP actual.">
+        <div className="space-y-5">
+          <SectionCard title="Herramientas" subtitle="Herramientas conocidas por la capa MCP actual.">
             <DataTable
-              columns={['Tool', 'Permission', 'Status']}
-              rows={tools.map((tool) => [tool.name, tool.permission_level, <StatusBadge status={tool.status} />])}
+              columns={['Herramienta', 'Permiso', 'Estado']}
+              rows={tools.map((tool) => [
+                <div className="text-sm font-medium text-white">{tool.name}</div>,
+                <div className="text-sm text-zinc-300">{formatDisplayText(tool.permission_level)}</div>,
+                <StatusBadge status={tool.status} />,
+              ])}
             />
           </SectionCard>
-
-          <div className="grid gap-4">
-            <InfoPanel eyebrow="Servers" title={`${servers.length} registered`} description="Cantidad de servidores MCP conocidos por el sistema en este despliegue." tone="default" />
-            <InfoPanel eyebrow="Tools" title={`${tools.length} visible`} description="Tools actualmente reflejadas en la UI como parte de la preparación MCP." tone="success" />
-          </div>
         </div>
       </div>
     </PageShell>

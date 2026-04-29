@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { DataTable, ErrorState, InfoPanel, LoadingState, PageShell, SectionCard, StatusBadge } from '../components/ui';
+import { DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { TaskRun } from '../types/domain';
 
 export function RunsPage() {
@@ -15,28 +15,30 @@ export function RunsPage() {
   if (!runs) return <LoadingState label="Cargando ejecuciones..." />;
 
   return (
-    <PageShell title="Runs" description="Seguimiento de cada ejecución asociada a tareas, agentes, runtime y resultados operativos.">
-      <div className="grid gap-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          <InfoPanel eyebrow="Runs" title={`${runs.length} registered`} description="Historial actual de ejecuciones persistidas por el sistema." tone="default" />
-          <InfoPanel eyebrow="Completed" title={`${runs.filter((run) => run.status === 'completed').length}`} description="Ejecuciones finalizadas satisfactoriamente." tone="success" />
-          <InfoPanel eyebrow="Active / failed" title={`${runs.filter((run) => run.status === 'running' || run.status === 'failed').length}`} description="Items que requieren seguimiento inmediato o revisión." tone="warning" />
-        </div>
+    <PageShell title="Ejecuciones" description="Seguimiento de cada ejecución asociada a tareas, agentes, runtime y resultados operativos.">
+      <StatsGrid
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"
+        items={[
+          { eyebrow: 'Ejecuciones', title: `${runs.length} registradas`, description: 'Historial actual de ejecuciones persistidas por el sistema.', tone: 'default' },
+          { eyebrow: 'Completadas', title: `${runs.filter((run) => run.status === 'completed').length}`, description: 'Ejecuciones finalizadas satisfactoriamente.', tone: 'success' },
+          { eyebrow: 'En curso o fallidas', title: `${runs.filter((run) => run.status === 'running' || run.status === 'failed').length}`, description: 'Elementos que requieren seguimiento inmediato o revisión.', tone: 'warning' },
+          { eyebrow: 'Duración media', title: `${Math.round(runs.filter((run) => run.duration_ms).reduce((total, run) => total + (run.duration_ms ?? 0), 0) / Math.max(1, runs.filter((run) => run.duration_ms).length))} ms`, description: 'Referencia rápida para detectar desvíos de desempeño entre ejecuciones.', tone: 'default' },
+        ]}
+      />
 
-        <SectionCard title="Execution register" subtitle="Vista compacta y trazable de runs, duración, salida y modo de operación.">
-          <DataTable
-            columns={['Trace', 'Task', 'Mode', 'Status', 'Duration', 'Output']}
-            rows={runs.map((run) => [
-              <span className="font-mono text-xs text-slate-400">{run.trace_id}</span>,
-              run.task_id,
-              run.execution_mode,
-              <StatusBadge status={run.status} />,
-              run.duration_ms ? `${run.duration_ms} ms` : 'n/a',
-              <div className="max-w-md text-sm leading-6 text-slate-600">{run.output_summary ?? 'Sin salida'}</div>,
-            ])}
-          />
-        </SectionCard>
-      </div>
+      <SectionCard title="Registro de ejecuciones" subtitle="Vista compacta y trazable de runs, duración, salida y modo de operación.">
+        <DataTable
+          columns={['Traza', 'Tarea', 'Modo', 'Estado', 'Duración', 'Salida']}
+          rows={runs.map((run) => [
+            <span className="font-mono text-xs text-zinc-500">{run.trace_id}</span>,
+            <span className="text-sm text-zinc-300">{run.task_id}</span>,
+            <span className="text-sm text-zinc-300">{formatDisplayText(run.execution_mode)}</span>,
+            <StatusBadge status={run.status} />,
+            run.duration_ms ? `${run.duration_ms} ms` : 'no disponible',
+            <div className="max-w-[16rem] text-sm leading-6 text-zinc-400">{run.output_summary ?? 'Sin salida'}</div>,
+          ])}
+        />
+      </SectionCard>
     </PageShell>
   );
 }

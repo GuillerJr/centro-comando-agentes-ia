@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { DataTable, ErrorState, InfoPanel, LoadingState, PageShell, SectionCard } from '../components/ui';
+import { DataTable, ErrorState, LoadingState, PageShell, SectionCard, StatsGrid } from '../components/ui';
 import type { SystemSetting } from '../types/domain';
 
 export function SettingsPage() {
@@ -15,19 +15,35 @@ export function SettingsPage() {
   if (!settings) return <LoadingState label="Cargando configuración..." />;
 
   return (
-    <PageShell title="Settings" description="Parámetros operativos persistidos, configuración visible y preparación para auth, seguridad y modos de ejecución futuros.">
-      <div className="grid gap-6 xl:grid-cols-[1.18fr_0.82fr]">
-        <SectionCard title="Configuration table" subtitle="Vista principal de parámetros activos y su propósito operativo.">
+    <PageShell title="Configuración" description="Parámetros operativos persistidos y base de configuración del entorno de control.">
+      <StatsGrid
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        items={[
+          { eyebrow: 'Persistencia', title: `${settings.length} claves visibles`, description: 'Parámetros centralizados para sostener coherencia entre despliegues.', tone: 'default' },
+          { eyebrow: 'Seguridad', title: `${settings.filter((setting) => setting.is_sensitive).length} sensibles`, description: 'Campos que conviene proteger con controles de acceso y edición restringida.', tone: 'warning' },
+          { eyebrow: 'Categorías', title: `${new Set(settings.map((setting) => setting.category)).size} grupos`, description: 'Distribución funcional de la configuración disponible en la instancia.', tone: 'success' },
+        ]}
+      />
+
+      <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.18fr)_22rem]">
+        <SectionCard title="Registro de configuración" subtitle="Tabla principal de parámetros activos y su contexto operativo.">
           <DataTable
-            columns={['Key', 'Category', 'Sensitive', 'Description']}
-            rows={settings.map((setting) => [setting.setting_key, setting.category, setting.is_sensitive ? 'yes' : 'no', <div className="max-w-2xl text-sm leading-6 text-slate-600">{setting.description}</div>])}
+            columns={['Clave', 'Categoría', 'Sensitivo', 'Descripción']}
+            rows={settings.map((setting) => [
+              <div className="text-sm font-medium text-white">{setting.setting_key}</div>,
+              <div className="text-sm text-zinc-300">{setting.category}</div>,
+              <div className="text-sm text-zinc-300">{setting.is_sensitive ? 'sí' : 'no'}</div>,
+              <div className="text-sm leading-6 text-zinc-400">{setting.description}</div>,
+            ])}
           />
         </SectionCard>
 
-        <div className="grid gap-4">
-          <InfoPanel eyebrow="Persistence" title="Centralized settings" description="Los parámetros se mantienen en base de datos para conservar coherencia entre despliegues y reinicios." tone="default" />
-          <InfoPanel eyebrow="Security" title="Sensitive fields identified" description="La UI distingue sensibilidad para preparar futuros controles de acceso y edición protegida." tone="warning" />
-        </div>
+        <SectionCard title="Notas de operación" subtitle="Lectura práctica para gobernar la configuración sin perder contexto.">
+          <div className="space-y-3">
+            <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">La configuración está centralizada para mantener una base consistente entre reinicios y despliegues.</div>
+            <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">Los campos sensibles ya se distinguen visualmente para preparar una futura edición protegida.</div>
+          </div>
+        </SectionCard>
       </div>
     </PageShell>
   );

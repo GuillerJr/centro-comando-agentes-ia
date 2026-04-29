@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { CommandConsole, DataTable, EmptyState, ErrorState, InfoPanel, LoadingState, MetricPill, PageShell, SectionCard } from '../components/ui';
+import { CommandConsole, DataTable, EmptyState, ErrorState, formatDisplayText, LoadingState, MetricPill, PageShell, SectionCard, StatsGrid } from '../components/ui';
 import type { ConsoleSnapshot } from '../types/domain';
 
 export function CommandConsolePage() {
@@ -8,40 +8,46 @@ export function CommandConsolePage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    commandCenterApi.getConsoleSnapshot().then(setSnapshot).catch((reason) => setError(reason instanceof Error ? reason.message : 'No se pudo cargar la consola.'));
+    commandCenterApi.getConsoleSnapshot().then(setSnapshot).catch((reason) => setError(reason instanceof Error ? reason.message : 'No se pudo cargar la consola operativa.'));
   }, []);
 
   if (error) return <ErrorState message={error} />;
   if (!snapshot) return <LoadingState label="Cargando consola de mando..." />;
 
   return (
-    <PageShell title="Command console" description="Vista operativa controlada del runtime, whitelist y snapshot reciente de actividad expuesta por la capa adaptadora." action={<MetricPill label="Mode" value={snapshot.mode} tone="info" />}>
-      <div className="grid gap-6 xl:grid-cols-[1.18fr_0.82fr]">
-        <SectionCard title="Allowed commands" subtitle="Whitelists visibles para operación indirecta segura.">
+    <PageShell title="Consola operativa" description="Superficie controlada para observar el runtime, la lista permitida y las señales operativas recientes." action={<MetricPill label="Modo" value={snapshot.mode} tone="info" />}>
+      <StatsGrid
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        items={[
+          { eyebrow: 'Seguridad', title: `${snapshot.commandWhitelist.length} comandos permitidos`, description: 'La consola solo expone acciones explícitamente autorizadas por la capa adaptadora.', tone: 'warning' },
+          { eyebrow: 'Agentes', title: `${snapshot.availableAgents.length} visibles`, description: snapshot.availableAgents.length > 0 ? snapshot.availableAgents.map((agent) => agent.name).join(' · ') : 'No hay agentes visibles en este corte.', tone: 'default' },
+          { eyebrow: 'Señales', title: `${snapshot.logs.length} eventos recientes`, description: 'Eventos devueltos por el snapshot para seguir la actividad reciente del runtime.', tone: 'success' },
+        ]}
+      />
+
+      <div className="grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
+        <SectionCard title="Comandos permitidos" subtitle="Comandos explícitamente permitidos por la capa adaptadora.">
           <CommandConsole>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
               {snapshot.commandWhitelist.map((command) => (
-                <div key={command} className="rounded-[20px] border border-slate-100 bg-slate-50 px-4 py-4 text-sm font-medium text-slate-700">
-                  {command}
+                <div key={command} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-4 text-sm font-medium text-zinc-200 break-all sm:break-normal">
+                  {formatDisplayText(command)}
                 </div>
               ))}
             </div>
           </CommandConsole>
         </SectionCard>
 
-        <div className="space-y-6">
-          <InfoPanel eyebrow="Safety" title="No arbitrary execution" description="La UI no dispara comandos arbitrarios; solo expone control indirecto basado en whitelists y tareas." tone="warning" />
-          <InfoPanel eyebrow="Agents" title={`${snapshot.availableAgents.length} visible`} description={snapshot.availableAgents.length > 0 ? snapshot.availableAgents.map((agent) => agent.name).join(' · ') : 'No hay agentes visibles desde este snapshot.'} tone="default" />
-        </div>
+        <EmptyState title="Consola de observación" description="Este módulo prioriza seguridad: muestra contexto operativo, pero no permite lanzar comandos arbitrarios desde la interfaz." />
       </div>
 
-      <SectionCard title="Recent console logs" subtitle="Señales recientes expuestas por el snapshot actual.">
+      <SectionCard title="Registros recientes" subtitle="Eventos recientes expuestos por el estado actual.">
         {snapshot.logs.length === 0 ? (
           <EmptyState title="Sin logs disponibles" description="No se recibieron eventos recientes desde la capa de consola." />
         ) : (
           <DataTable
-            columns={['Level', 'Timestamp', 'Message']}
-            rows={snapshot.logs.map((log, index) => [log.level, log.timestamp, <div key={`${log.timestamp}-${index}`} className="max-w-3xl text-sm leading-6 text-slate-600">{log.message}</div>])}
+            columns={['Nivel', 'Fecha', 'Mensaje']}
+            rows={snapshot.logs.map((log, index) => [formatDisplayText(log.level), log.timestamp, <div key={`${log.timestamp}-${index}`} className="max-w-3xl text-sm leading-6 text-zinc-400">{log.message}</div>])}
           />
         )}
       </SectionCard>

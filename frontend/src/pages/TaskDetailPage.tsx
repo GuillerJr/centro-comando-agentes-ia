@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { commandCenterApi } from '../api/commandCenterApi';
-import { DataTable, ErrorState, InfoPanel, LoadingState, PageShell, RunLogViewer, SectionCard, StatusBadge, TaskStatusTimeline } from '../components/ui';
+import { DataTable, ErrorState, formatDisplayText, LoadingState, PageShell, RunLogViewer, SectionCard, StatsGrid, StatusBadge, TaskStatusTimeline } from '../components/ui';
 import type { Task, TaskRun } from '../types/domain';
 
 export function TaskDetailPage() {
@@ -25,19 +25,33 @@ export function TaskDetailPage() {
 
   return (
     <PageShell title={task.title} description={task.description}>
-      <div className="grid gap-6 xl:grid-cols-[0.72fr_1.28fr]">
-        <div className="space-y-6">
+      <StatsGrid
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        items={[
+          { eyebrow: 'Prioridad', title: formatDisplayText(task.priority), description: 'Nivel actual asignado a la tarea dentro del flujo operativo.', tone: 'default' },
+          { eyebrow: 'Tipo', title: formatDisplayText(task.task_type), description: 'Dominio funcional principal asociado a esta ejecución.', tone: 'success' },
+          { eyebrow: 'Ejecuciones', title: `${runs.length} asociadas`, description: 'Cantidad de corridas registradas para esta tarea.', tone: runs.length > 0 ? 'default' : 'warning' },
+        ]}
+      />
+
+      <div className="grid gap-5 xl:grid-cols-[0.78fr_1.22fr]">
+        <div className="space-y-5">
           <TaskStatusTimeline status={task.status} startedAt={task.started_at} completedAt={task.completed_at} />
-          <InfoPanel eyebrow="Priority" title={task.priority} description="Prioridad actual asignada a esta tarea dentro del sistema operativo y de ejecución." tone="default" />
-          <InfoPanel eyebrow="Type" title={task.task_type} description="Tipo funcional principal asociado a esta tarea y a su forma de orquestación." tone="success" />
+          <SectionCard title="Contexto de ejecución" subtitle="Resumen para leer estado, tiempos y cantidad de corridas sin navegar a otra vista.">
+            <div className="space-y-3">
+              <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">Estado actual: <span className="font-semibold text-white">{formatDisplayText(task.status)}</span>.</div>
+              <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">Inicio: <span className="font-semibold text-white">{task.started_at ?? 'pendiente'}</span>.</div>
+              <div className="surface-muted p-4 text-sm leading-6 text-zinc-300">Cierre: <span className="font-semibold text-white">{task.completed_at ?? 'sin finalizar'}</span>.</div>
+            </div>
+          </SectionCard>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-5">
           <RunLogViewer logs={task.logs ?? 'Sin logs registrados todavía.'} />
-          <SectionCard title="Associated runs" subtitle="Registro asociado de ejecuciones disparadas desde esta tarea.">
+          <SectionCard title="Ejecuciones asociadas" subtitle="Registro asociado de ejecuciones disparadas desde esta tarea.">
             <DataTable
-              columns={['Action', 'Mode', 'Status', 'Trace']}
-              rows={runs.map((run) => [run.requested_action, run.execution_mode, <StatusBadge status={run.status} />, <span className="font-mono text-xs text-slate-400">{run.trace_id}</span>])}
+              columns={['Acción', 'Modo', 'Estado', 'Traza']}
+              rows={runs.map((run) => [run.requested_action, formatDisplayText(run.execution_mode), <StatusBadge status={run.status} />, <span className="font-mono text-xs text-zinc-500">{run.trace_id}</span>])}
             />
           </SectionCard>
         </div>
