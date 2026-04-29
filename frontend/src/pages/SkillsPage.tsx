@@ -3,7 +3,7 @@ import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { Modal } from '../components/modal';
-import { CreateButton, IconEditButton } from '../components/table-actions';
+import { CreateButton, IconEditButton, IconToggleButton } from '../components/table-actions';
 import { ActionFeedback, DataTable, ErrorState, FormField, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { Skill } from '../types/domain';
 import { skillFormSchema } from '../utils/validation';
@@ -127,11 +127,14 @@ export function SkillsPage() {
       />
 
       <SectionCard title="Lectura del catálogo" subtitle="Ayuda a verificar si el inventario de capacidades está balanceado antes de asignarlas a tareas o agentes.">
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Activas</p><p className="mt-3 text-2xl font-semibold text-white">{skills.filter((skill) => skill.status === 'active').length}</p><p className="mt-2 text-sm text-zinc-400">Capacidades listas para uso inmediato.</p></div>
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Sin alias</p><p className="mt-3 text-2xl font-semibold text-white">{skills.filter((skill) => !skill.conversational_alias).length}</p><p className="mt-2 text-sm text-zinc-400">Entradas pendientes de sinónimo conversacional.</p></div>
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Promedio de checklist</p><p className="mt-3 text-2xl font-semibold text-white">{skills.length > 0 ? Math.round(skills.reduce((total, skill) => total + skill.quality_checklist.length, 0) / skills.length) : 0}</p><p className="mt-2 text-sm text-zinc-400">Punto de partida para elevar calidad y gobernanza.</p></div>
-        </div>
+        <DataTable
+          columns={['Indicador', 'Valor', 'Lectura']}
+          rows={[
+            ['Activas', skills.filter((skill) => skill.status === 'active').length, 'Capacidades listas para uso inmediato.'],
+            ['Sin alias', skills.filter((skill) => !skill.conversational_alias).length, 'Entradas pendientes de sinónimo conversacional.'],
+            ['Promedio checklist', skills.length > 0 ? Math.round(skills.reduce((total, skill) => total + skill.quality_checklist.length, 0) / skills.length) : 0, 'Punto de partida para elevar calidad y gobernanza.'],
+          ]}
+        />
       </SectionCard>
 
       <SectionCard title="Registro de capacidades" subtitle="Gestión centralizada mediante tabla y modales." action={<CreateButton label="Crear capacidad" onClick={openCreate} />}>
@@ -142,7 +145,7 @@ export function SkillsPage() {
             <span className="text-sm text-zinc-300">{formatDisplayText(skill.skill_type)}</span>,
             <StatusBadge status={skill.status} />,
             <div className="max-w-md text-sm leading-6 text-zinc-400">{skill.when_to_use}</div>,
-            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(skill)} /></div>,
+            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(skill)} /><IconToggleButton active={skill.status === 'active'} onClick={() => void commandCenterApi.updateSkill(skill.id, { canonicalName: skill.canonical_name, conversationalAlias: skill.conversational_alias ?? null, description: skill.description, skillType: skill.skill_type, status: skill.status === 'active' ? 'inactive' : 'active', whenToUse: skill.when_to_use, whenNotToUse: skill.when_not_to_use, relatedSkills: skill.related_skills, qualityChecklist: skill.quality_checklist, metadata: skill.metadata ?? {} }).then(loadSkills).then(() => setFeedback(`La capacidad ${skill.canonical_name} quedó ${skill.status === 'active' ? 'inactiva' : 'activa'}.`)).catch((reason) => setActionError(reason instanceof Error ? reason.message : 'No se pudo actualizar la capacidad.'))} /></div>,
           ])}
         />
       </SectionCard>

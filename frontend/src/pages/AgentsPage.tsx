@@ -141,11 +141,14 @@ export function AgentsPage() {
       />
 
       <SectionCard title="Lectura operativa" subtitle="Resumen compacto para ver mezcla de perfiles y presión disponible antes de crear o pausar agentes.">
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Prioridad media</p><p className="mt-3 text-2xl font-semibold text-white">{averagePriority}</p><p className="mt-2 text-sm text-zinc-400">Promedio de prioridad para repartir carga y atención.</p></div>
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Distribución</p><p className="mt-3 text-2xl font-semibold text-white">{distribution.length}</p><p className="mt-2 text-sm text-zinc-400">Tipos distintos visibles en el inventario actual.</p></div>
-          <div className="surface-muted p-4"><p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Cobertura activa</p><p className="mt-3 text-2xl font-semibold text-white">{agents.length > 0 ? Math.round((activeAgents / agents.length) * 100) : 0}%</p><p className="mt-2 text-sm text-zinc-400">Porcentaje operativo frente al total registrado.</p></div>
-        </div>
+        <DataTable
+          columns={['Indicador', 'Valor', 'Lectura']}
+          rows={[
+            ['Prioridad media', averagePriority, 'Promedio de prioridad para repartir carga y atención.'],
+            ['Distribución', distribution.length, 'Tipos distintos visibles en el inventario actual.'],
+            ['Cobertura activa', `${agents.length > 0 ? Math.round((activeAgents / agents.length) * 100) : 0}%`, 'Porcentaje operativo frente al total registrado.'],
+          ]}
+        />
       </SectionCard>
 
       <SectionCard title="Registro de agentes" subtitle="Gestión centralizada mediante tabla, acciones compactas y modales." action={<CreateButton label="Crear agente" onClick={openCreate} />}>
@@ -157,7 +160,7 @@ export function AgentsPage() {
             <StatusBadge status={agent.status} />,
             <span className="text-sm text-zinc-300">{agent.priority}</span>,
             <span className="text-sm text-zinc-300">{agent.execution_limit}</span>,
-            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(agent)} /><IconToggleButton active={agent.status === 'active'} onClick={() => void toggleStatus(agent)} /></div>,
+            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(agent)} /><IconToggleButton active={agent.status === 'active'} onClick={() => void toggleStatus(agent)} /><Button size="sm" variant="secondary" onClick={() => void commandCenterApi.updateAgent(agent.id, { name: agent.name, description: agent.description, agentType: agent.agent_type, status: agent.status, skillIds: agent.skill_ids, priority: Math.min(100, agent.priority + 5), executionLimit: agent.execution_limit, metadata: agent.metadata ?? {} }).then(loadAgents).then(() => setFeedback(`La prioridad de ${agent.name} subió a ${Math.min(100, agent.priority + 5)}.`)).catch((reason) => setActionError(reason instanceof Error ? reason.message : 'No se pudo subir la prioridad.'))}>+Prioridad</Button></div>,
           ])}
         />
       </SectionCard>

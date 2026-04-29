@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
-import { DataTable, DetailList, EmptyState, ErrorState, formatDateTime, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { DataTable, EmptyState, ErrorState, formatDateTime, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { AuditLog } from '../types/domain';
 
 export function AuditPage() {
@@ -57,7 +57,16 @@ export function AuditPage() {
         </SectionCard>
 
         <SectionCard title="Lectura rápida" subtitle="Puntos de interpretación para separar ruido de eventos relevantes.">
-          {topIssue ? <DetailList items={[{ label: 'Evento a revisar', value: topIssue.action }, { label: 'Módulo', value: topIssue.module_name }, { label: 'Actor', value: topIssue.actor }, { label: 'Severidad', value: <StatusBadge status={topIssue.severity} /> }, { label: 'Fecha', value: formatDateTime(topIssue.created_at) }]} /> : <EmptyState title="Sin eventos destacados" description="Todavía no hay registros para construir una lectura rápida de auditoría." />}
+          {topIssue ? <DataTable
+            columns={['Campo', 'Valor']}
+            rows={[
+              ['Evento a revisar', topIssue.action],
+              ['Módulo', topIssue.module_name],
+              ['Actor', topIssue.actor],
+              ['Severidad', <StatusBadge status={topIssue.severity} />],
+              ['Fecha', formatDateTime(topIssue.created_at)],
+            ]}
+          /> : <EmptyState title="Sin eventos destacados" description="Todavía no hay registros para construir una lectura rápida de auditoría." />}
         </SectionCard>
       </div>
     </PageShell>
