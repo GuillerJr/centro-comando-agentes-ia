@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Activity, ArrowRight, Bot, CheckCircle2, Clock3, Lock, Plus, ShieldAlert, Sparkles, Trash2, Waypoints } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ArrowRight, Bot, CheckCircle2, Plus, ShieldAlert, Sparkles, Trash2, Waypoints } from 'lucide-react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { Modal } from '../components/modal';
+import { OfficePixiScene } from '../components/OfficePixiScene';
 import { ActionFeedback, EmptyState, ErrorState, FormField, LoadingState, MetricPill, PageShell, SectionCard, StatusBadge, formatDateTime, formatDisplayText } from '../components/ui';
 import type { Agent, OfficeState, OfficeZone, OfficeZoneAgent, OfficeZoneTask, Task } from '../types/domain';
 
@@ -51,15 +52,6 @@ const defaultZoneForm: ZoneForm = { code: '', name: '', subtitle: '', zoneType: 
 const defaultStationForm: StationForm = { zoneId: '', code: '', name: '', stationType: 'desk', status: 'available', capacity: 1 };
 const defaultAssignmentForm: AssignmentForm = { stationId: '', agentId: '', taskId: '', assignmentRole: 'responsable', presenceStatus: 'present', isPrimary: true, notes: '' };
 
-const roomTone = (accent: string) => accent || 'from-slate-500/40 to-slate-700/20';
-
-const stationStatusLabel = (status: string) => {
-  if (status === 'occupied') return 'Operando';
-  if (status === 'reserved') return 'Reservada';
-  if (status === 'maintenance') return 'Bloqueada';
-  return 'Disponible';
-};
-
 const presenceLabel = (status: string) => {
   if (status === 'focusing') return 'En foco';
   if (status === 'in_review') return 'En revisión';
@@ -74,12 +66,10 @@ const pulseLabel = (tone: ZoneSummary['pulseTone']) => {
   return 'En espera';
 };
 
-const initials = (value: string) => value.split(' ').filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() ?? '').join('') || 'AG';
-
 const getZoneTaskMap = (zone: OfficeZone) => {
   const taskMap = new Map<string, OfficeZoneTask>();
-  zone.tasks.forEach((task) => taskMap.set(task.id, task));
-  zone.agents.forEach((assignment) => {
+  (zone.tasks ?? []).forEach((task) => taskMap.set(task.id, task));
+  (zone.agents ?? []).forEach((assignment) => {
     if (assignment.task) taskMap.set(assignment.task.id, assignment.task);
   });
   return taskMap;
@@ -267,42 +257,44 @@ export function OfficeDesignPage() {
       await work();
       setFeedback(successMessage);
       await loadOffice();
+      return true;
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : fallbackMessage);
+      return false;
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const submitZone = async (event: React.FormEvent) => {
+  const submitZone = async (event: FormEvent) => {
     event.preventDefault();
-    await runMutation(
+    const succeeded = await runMutation(
       () => editingZoneId ? commandCenterApi.updateOfficeZone(editingZoneId, { ...zoneForm, metadata: {} }) : commandCenterApi.createOfficeZone({ ...zoneForm, metadata: {} }),
       editingZoneId ? 'La zona se actualizó correctamente.' : 'La zona se creó correctamente.',
       'No se pudo guardar la zona.',
     );
-    resetZoneForm();
+    if (succeeded) resetZoneForm();
   };
 
-  const submitStation = async (event: React.FormEvent) => {
+  const submitStation = async (event: FormEvent) => {
     event.preventDefault();
-    await runMutation(
+    const succeeded = await runMutation(
       () => editingStationId ? commandCenterApi.updateOfficeStation(editingStationId, { ...stationForm, metadata: {} }) : commandCenterApi.createOfficeStation({ ...stationForm, metadata: {} }),
       editingStationId ? 'La estación se actualizó correctamente.' : 'La estación se creó correctamente.',
       'No se pudo guardar la estación.',
     );
-    resetStationForm();
+    if (succeeded) resetStationForm();
   };
 
-  const submitAssignment = async (event: React.FormEvent) => {
+  const submitAssignment = async (event: FormEvent) => {
     event.preventDefault();
     const payload = { ...assignmentForm, taskId: assignmentForm.taskId || null, notes: assignmentForm.notes || null, metadata: {} };
-    await runMutation(
+    const succeeded = await runMutation(
       () => editingAssignmentId ? commandCenterApi.updateOfficeAssignment(editingAssignmentId, payload) : commandCenterApi.createOfficeAssignment(payload),
       editingAssignmentId ? 'La asignación se actualizó correctamente.' : 'La asignación se creó correctamente.',
       'No se pudo guardar la asignación.',
     );
-    resetAssignmentForm();
+    if (succeeded) resetAssignmentForm();
   };
 
   if (error && !state) {
@@ -351,138 +343,7 @@ export function OfficeDesignPage() {
 
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         <SectionCard title="Oficina viva" subtitle="Presencia, pulso y tránsitos calculados sobre zonas, estaciones, asignaciones, tareas, runs y aprobaciones." action={<MetricPill label="Asignaciones" value={String(totalAssignments)} tone="success" />}>
-          <div className="office-board office-board--immersive">
-            <div className="office-board__ambient" />
-            <div className="office-board__grid" />
-
-            {flowLinks.map((flow) => (
-              <div
-                key={flow.id}
-                className="office-handoff"
-                style={{
-                  left: flow.left,
-                  top: flow.top,
-                  width: flow.width,
-                  transform: `translateY(-50%) rotate(${flow.angle})`,
-                }}
-              >
-                <div className="office-handoff__beam" />
-              </div>
-            ))}
-
-            {zoneSummaries.map((zone) => (
-              <section
-                key={zone.id}
-                className={`office-room office-room--${zone.pulseTone} bg-gradient-to-br ${roomTone(zone.accent)}`}
-                style={{ gridColumn: `${zone.x + 1} / span ${zone.w}`, gridRow: `${zone.y + 1} / span ${zone.h}` }}
-              >
-                <div className="office-room__pulse" />
-                <div className="office-room__header">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="office-room__title">{zone.name}</p>
-                      <span className={`office-room__status office-room__status--${zone.pulseTone}`}>{pulseLabel(zone.pulseTone)}</span>
-                    </div>
-                    <p className="office-room__subtitle">{zone.subtitle}</p>
-                  </div>
-                  <div className="office-room__metrics">
-                    <span className="office-room__badge">{zone.stations.length} estaciones</span>
-                    <span className="office-room__badge">{zone.agents.length} agentes</span>
-                  </div>
-                </div>
-
-                <div className="office-room__signals">
-                  <div className="office-room__signal">
-                    <Activity className="h-3.5 w-3.5" />
-                    <span>{zone.activeRuns.length} runs</span>
-                  </div>
-                  <div className="office-room__signal">
-                    <Waypoints className="h-3.5 w-3.5" />
-                    <span>{zone.tasks.length} tareas</span>
-                  </div>
-                  <div className="office-room__signal">
-                    <Clock3 className="h-3.5 w-3.5" />
-                    <span>{zone.occupiedStations}/{zone.stations.length} ocupadas</span>
-                  </div>
-                  {zone.pendingApprovals.length > 0 ? (
-                    <div className="office-room__signal office-room__signal--warning">
-                      <Lock className="h-3.5 w-3.5" />
-                      <span>{zone.pendingApprovals.length} bloqueo</span>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="office-room__stations">
-                  {zone.stations.slice(0, 4).map((station) => {
-                    const stationed = zone.agents.filter((assignment) => assignment.stationId === station.id);
-
-                    return (
-                      <article key={station.id} className={`office-station office-station--${station.status}`}>
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-white/90">{station.name}</p>
-                            <p className="mt-1 text-[11px] text-zinc-300">{formatDisplayText(station.stationType)} · capacidad {station.capacity}</p>
-                          </div>
-                          <StatusBadge status={station.status} />
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between gap-3">
-                          <div className="office-avatar-stack">
-                            {stationed.length > 0 ? stationed.slice(0, 3).map((assignment) => (
-                              <div key={assignment.assignmentId} className={`office-avatar office-avatar--${assignment.presenceStatus}`} title={`${assignment.agent.name} · ${presenceLabel(assignment.presenceStatus)}`}>
-                                <div className="office-avatar__figure">{initials(assignment.agent.name)}</div>
-                                <div className={`office-avatar__dot office-avatar__dot--${assignment.presenceStatus === 'away' ? 'idle' : 'active'}`} />
-                              </div>
-                            )) : <div className="office-station__idle">Sin presencia</div>}
-                          </div>
-                          <span className="text-[11px] font-medium text-zinc-300">{stationStatusLabel(station.status)}</span>
-                        </div>
-
-                        {stationed.length > 0 ? (
-                          <div className="mt-3 grid gap-2">
-                            {stationed.slice(0, 2).map((assignment) => (
-                              <div key={assignment.assignmentId} className="office-agent-card">
-                                <div className={`office-avatar office-avatar--${assignment.presenceStatus}`}>
-                                  <div className="office-avatar__figure">{initials(assignment.agent.name)}</div>
-                                  <div className={`office-avatar__dot office-avatar__dot--${assignment.presenceStatus === 'away' ? 'idle' : 'active'}`} />
-                                </div>
-                                <div className="office-room__agent-meta">
-                                  <span className="office-room__agent-name">{assignment.agent.name}</span>
-                                  <span className="office-room__agent-role">{assignment.task?.title ?? formatDisplayText(assignment.assignmentRole)}</span>
-                                </div>
-                                <span className={`office-presence office-presence--${assignment.presenceStatus}`}>{presenceLabel(assignment.presenceStatus)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                      </article>
-                    );
-                  })}
-                </div>
-
-                <div className="office-room__footer">
-                  <div className="office-room__tasks">
-                    {zone.tasks.slice(0, 3).map((task) => (
-                      <div key={task.id} className="office-room__task-chip">
-                        <Waypoints className="h-3.5 w-3.5" />
-                        <span>{task.title}</span>
-                      </div>
-                    ))}
-                    {zone.tasks.length === 0 ? (
-                      <div className="office-room__task-chip opacity-70">
-                        <Clock3 className="h-3.5 w-3.5" />
-                        <span>Sin cola visible</span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="office-room__microcopy">
-                    {zone.pendingApprovals.length > 0 ? 'Esperando decisión humana para destrabar flujo.' : zone.focusingAgents > 0 ? 'Agentes concentrados en ejecución o revisión.' : zone.agents.length > 0 ? 'Presencia estable con actividad distribuida.' : 'Zona lista para recibir trabajo.'}
-                  </div>
-                </div>
-              </section>
-            ))}
-          </div>
+          <OfficePixiScene state={state} />
         </SectionCard>
 
         <div className="space-y-5">
