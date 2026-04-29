@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
+import { Input } from '../components/input';
 import { ActionFeedback, DataTable, EmptyState, ErrorState, formatDateTime, formatDisplayText, formatDuration, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { TaskRun } from '../types/domain';
 
@@ -10,6 +11,8 @@ export function RunsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const loadRuns = async () => {
     try {
@@ -50,7 +53,12 @@ export function RunsPage() {
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => void loadRuns()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando ejecuciones..." />;
 
-  const lastRun = runs[0];
+  const filteredRuns = runs.filter((run) => {
+    const matchesSearch = `${run.trace_id} ${run.task_id} ${run.requested_action}`.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || run.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+  const lastRun = filteredRuns[0] ?? runs[0];
 
   return (
     <PageShell title="Ejecuciones" description="Seguimiento y control operativo real sobre cada run persistido.">
@@ -68,9 +76,13 @@ export function RunsPage() {
 
       <div className="grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
         <SectionCard title="Registro de ejecuciones" subtitle="Control de estado, reintento y cancelación desde tabla.">
+          <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+            <Input placeholder="Buscar run o traza..." value={search} onChange={(event) => setSearch(event.target.value)} />
+            <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="queued">queued</option><option value="running">running</option><option value="completed">completed</option><option value="failed">failed</option><option value="cancelled">cancelled</option></select>
+          </div>
           <DataTable
             columns={['Traza', 'Tarea', 'Modo', 'Estado', 'Duración', 'Fecha', 'Acciones']}
-            rows={runs.map((run) => [
+            rows={filteredRuns.map((run) => [
               <span className="font-mono text-xs text-zinc-500">{run.trace_id.slice(0, 12)}</span>,
               <span className="text-sm text-zinc-300">{run.task_id}</span>,
               <span className="text-sm text-zinc-300">{formatDisplayText(run.execution_mode)}</span>,

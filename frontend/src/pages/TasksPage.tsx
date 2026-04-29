@@ -20,6 +20,8 @@ export function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const loadTasks = async () => {
     try {
@@ -171,6 +173,12 @@ export function TasksPage() {
   if (loadError) return <ErrorState message={loadError} action={<Button onClick={() => void loadTasks()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando tareas..." />;
 
+  const filteredTasks = tasks.filter((task) => {
+    const matchesSearch = `${task.title} ${task.description} ${task.task_type}`.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <PageShell title="Tareas" description="Planeación, ejecución y seguimiento de trabajo operativo sobre OpenClaw y la capa de gobierno superior." action={<ConfirmDialog title="Control de seguridad" description="Acciones sensibles deben pasar por aprobaciones antes de ejecutarse." />}>
       {!isModalOpen && actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
@@ -197,9 +205,13 @@ export function TasksPage() {
       </SectionCard>
 
       <SectionCard title="Cola de tareas" subtitle="Gestión centralizada con tabla, acciones compactas y modales." action={<CreateButton label="Crear tarea" onClick={openCreate} />}>
+        <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <Input placeholder="Buscar tarea..." value={search} onChange={(event) => setSearch(event.target.value)} />
+          <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="pending">pendientes</option><option value="running">running</option><option value="awaiting_approval">esperando aprobación</option><option value="completed">completadas</option><option value="failed">fallidas</option><option value="cancelled">canceladas</option></select>
+        </div>
         <DataTable
           columns={['Título', 'Prioridad', 'Tipo', 'Estado', 'Detalle', 'Acciones']}
-          rows={tasks.map((task) => [
+          rows={filteredTasks.map((task) => [
             <div className="max-w-xs"><p className="text-sm font-semibold text-white">{task.title}</p><p className="mt-1 text-xs text-zinc-500">{task.result_summary ?? 'Sin resumen todavía'}</p></div>,
             <span className="text-sm text-zinc-300">{formatDisplayText(task.priority)}</span>,
             <span className="text-sm text-zinc-300">{formatDisplayText(task.task_type)}</span>,

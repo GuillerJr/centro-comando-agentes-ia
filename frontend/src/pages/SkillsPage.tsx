@@ -19,6 +19,8 @@ export function SkillsPage() {
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const loadSkills = async () => {
     try {
@@ -113,6 +115,12 @@ export function SkillsPage() {
   if (loadError) return <ErrorState message={loadError} action={<Button onClick={() => void loadSkills()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando capacidades..." />;
 
+  const filteredSkills = skills.filter((skill) => {
+    const matchesSearch = `${skill.canonical_name} ${skill.description} ${skill.skill_type}`.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || skill.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <PageShell title="Capacidades" description="Registro canónico de capacidades, límites y criterio de uso dentro del sistema multi-agente.">
       {!isModalOpen && actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
@@ -138,9 +146,13 @@ export function SkillsPage() {
       </SectionCard>
 
       <SectionCard title="Registro de capacidades" subtitle="Gestión centralizada mediante tabla y modales." action={<CreateButton label="Crear capacidad" onClick={openCreate} />}>
+        <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <Input placeholder="Buscar capacidad..." value={search} onChange={(event) => setSearch(event.target.value)} />
+          <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="active">activas</option><option value="inactive">inactivas</option><option value="deprecated">deprecated</option></select>
+        </div>
         <DataTable
           columns={['Canónico', 'Tipo', 'Estado', 'Uso', 'Acciones']}
-          rows={skills.map((skill) => [
+          rows={filteredSkills.map((skill) => [
             <div className="max-w-xs"><p className="text-sm font-semibold text-white">{skill.canonical_name}</p><p className="mt-1 text-xs text-zinc-500">{skill.conversational_alias ?? 'sin alias'}</p></div>,
             <span className="text-sm text-zinc-300">{formatDisplayText(skill.skill_type)}</span>,
             <StatusBadge status={skill.status} />,

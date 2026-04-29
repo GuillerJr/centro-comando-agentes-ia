@@ -19,6 +19,8 @@ export function AgentsPage() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const loadAgents = async () => {
     try {
@@ -123,6 +125,11 @@ export function AgentsPage() {
   if (loadError) return <ErrorState message={loadError} action={<Button onClick={() => void loadAgents()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando agentes..." />;
 
+  const filteredAgents = agents.filter((agent) => {
+    const matchesSearch = `${agent.name} ${agent.description} ${agent.agent_type}`.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || agent.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
   const activeAgents = agents.filter((agent) => agent.status === 'active').length;
   const averagePriority = agents.length > 0 ? Math.round(agents.reduce((total, agent) => total + agent.priority, 0) / agents.length) : 0;
   const distribution = Array.from(new Set(agents.map((agent) => agent.agent_type)));
@@ -152,9 +159,13 @@ export function AgentsPage() {
       </SectionCard>
 
       <SectionCard title="Registro de agentes" subtitle="Gestión centralizada mediante tabla, acciones compactas y modales." action={<CreateButton label="Crear agente" onClick={openCreate} />}>
+        <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <Input placeholder="Buscar agente..." value={search} onChange={(event) => setSearch(event.target.value)} />
+          <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="active">activos</option><option value="inactive">inactivos</option><option value="error">error</option><option value="maintenance">mantenimiento</option></select>
+        </div>
         <DataTable
           columns={['Nombre', 'Tipo', 'Estado', 'Prioridad', 'Límite', 'Acciones']}
-          rows={agents.map((agent) => [
+          rows={filteredAgents.map((agent) => [
             <div className="max-w-xs"><p className="text-sm font-semibold text-white">{agent.name}</p><p className="mt-1 text-xs text-zinc-500">{agent.description}</p></div>,
             <span className="text-sm text-zinc-300">{formatDisplayText(agent.agent_type)}</span>,
             <StatusBadge status={agent.status} />,
