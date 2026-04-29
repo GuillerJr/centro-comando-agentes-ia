@@ -231,7 +231,7 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
       backgroundAlpha: 0,
       autoDensity: true,
       resolution: window.devicePixelRatio || 1,
-      preference: 'webgl',
+      preference: 'canvas',
       powerPreference: 'high-performance',
     }).then(() => {
       if (cancelled) {
