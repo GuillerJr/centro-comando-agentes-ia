@@ -230,12 +230,15 @@ export function OfficePixiScene({ state }: { state: OfficeState }) {
       backgroundAlpha: 0,
       autoDensity: true,
       resolution: window.devicePixelRatio || 1,
+      preference: 'webgl',
+      powerPreference: 'high-performance',
     }).then(() => {
       if (cancelled) {
         app.destroy(true, { children: true, texture: true });
         return;
       }
 
+      host.innerHTML = '';
       host.appendChild(app.canvas);
       appRef.current = app;
       setAppReady((current) => current + 1);
