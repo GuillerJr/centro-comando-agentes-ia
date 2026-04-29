@@ -67,6 +67,13 @@ export function DashboardPage() {
         </div>
       }
     >
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <Button variant="secondary" onClick={() => { window.location.href = '/tasks'; }}>Ir a tareas</Button>
+        <Button variant="secondary" onClick={() => { window.location.href = '/approvals'; }}>Revisar aprobaciones</Button>
+        <Button variant="secondary" onClick={() => { window.location.href = '/runs'; }}>Ver ejecuciones</Button>
+        <Button variant="secondary" onClick={() => { window.location.href = '/office'; }}>Abrir oficina</Button>
+      </div>
+
       <div className="metric-grid">
         <MetricCard label="Agentes activos" value={dashboard.metrics.active_agents} helper="Agentes disponibles para orquestar y ejecutar trabajo." trend="activo" />
         <MetricCard label="Tareas en curso" value={dashboard.metrics.running_tasks} helper="Carga actual del sistema en tiempo real." trend={`${dashboard.metrics.running_tasks || 0}`} />
@@ -204,30 +211,17 @@ export function DashboardPage() {
         </SectionCard>
 
         <SectionCard title="Alertas recientes" subtitle="Riesgos, módulos impactados y severidad operativa visible.">
-          <div className="space-y-3">
-            {latestAlerts.length === 0 ? (
-              <div className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 p-4">
-                <p className="text-sm font-semibold text-emerald-300">No hay alertas críticas ahora mismo.</p>
-                <p className="mt-1 text-sm leading-6 text-emerald-200/80">La auditoría no reporta señales severas en este momento.</p>
-              </div>
-            ) : (
-              latestAlerts.map((alert) => (
-                <div key={alert.id} className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-white">{alert.action}</p>
-                      <p className="mt-1 text-sm text-zinc-400">{alert.module_name}</p>
-                    </div>
-                    <StatusBadge status={alert.severity} />
-                  </div>
-                  <div className="mt-4 flex flex-col gap-1 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
-                    <span>{alert.actor}</span>
-                    <span>{formatDisplayText(alert.result_status)}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          {latestAlerts.length === 0 ? (
+            <div className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <p className="text-sm font-semibold text-emerald-300">No hay alertas críticas ahora mismo.</p>
+              <p className="mt-1 text-sm leading-6 text-emerald-200/80">La auditoría no reporta señales severas en este momento.</p>
+            </div>
+          ) : (
+            <DataTable
+              columns={['Acción', 'Módulo', 'Severidad', 'Actor', 'Resultado']}
+              rows={latestAlerts.map((alert) => [alert.action, alert.module_name, <StatusBadge status={alert.severity} />, alert.actor, formatDisplayText(alert.result_status)])}
+            />
+          )}
         </SectionCard>
       </div>
 
@@ -270,23 +264,14 @@ export function DashboardPage() {
         </SectionCard>
 
         <SectionCard title="Señales de plataforma" subtitle="Indicadores compactos de preparación, settings y servidores conectados.">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Alertas críticas</p>
-              <p className="mt-3 text-2xl font-semibold text-white">{dashboard.metrics.critical_alerts}</p>
-              <p className="mt-2 text-sm text-zinc-400">Señales de alta prioridad detectadas por auditoría.</p>
-            </div>
-            <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Configuraciones cargadas</p>
-              <p className="mt-3 text-2xl font-semibold text-white">{dashboard.settings.length}</p>
-              <p className="mt-2 text-sm text-zinc-400">Parámetros persistidos activos en esta instancia.</p>
-            </div>
-            <div className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4 sm:col-span-2 xl:col-span-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Servidores MCP</p>
-              <p className="mt-3 text-2xl font-semibold text-white">{dashboard.mcpServers.length}</p>
-              <p className="mt-2 text-sm text-zinc-400">Nodos listos para integraciones futuras.</p>
-            </div>
-          </div>
+          <DataTable
+            columns={['Indicador', 'Valor', 'Lectura']}
+            rows={[
+              ['Alertas críticas', dashboard.metrics.critical_alerts, 'Señales de alta prioridad detectadas por auditoría.'],
+              ['Configuraciones cargadas', dashboard.settings.length, 'Parámetros persistidos activos en esta instancia.'],
+              ['Servidores MCP', dashboard.mcpServers.length, 'Nodos listos para integraciones futuras.'],
+            ]}
+          />
         </SectionCard>
       </div>
 
@@ -294,26 +279,10 @@ export function DashboardPage() {
         {dashboard.mcpServers.length === 0 ? (
           <EmptyState title="Sin servicios conectados" description="Todavía no hay servidores MCP visibles para este entorno operativo." />
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {dashboard.mcpServers.map((server) => (
-              <div key={server.id} className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{server.name}</p>
-                    <p className="mt-1 text-sm text-zinc-400">{formatDisplayText(server.transport_type)}</p>
-                  </div>
-                  <StatusBadge status={server.status} />
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {server.allowed_actions.slice(0, 3).map((action) => (
-                    <span key={action} className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-1 text-xs font-medium text-zinc-400">
-                      {formatDisplayText(action)}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <DataTable
+            columns={['Servidor', 'Transporte', 'Estado', 'Acciones permitidas']}
+            rows={dashboard.mcpServers.map((server) => [server.name, formatDisplayText(server.transport_type), <StatusBadge status={server.status} />, <div className="text-xs text-zinc-400">{server.allowed_actions.slice(0, 3).map((action) => formatDisplayText(action)).join(', ') || 'Sin acciones declaradas'}</div>])}
+          />
         )}
       </SectionCard>
     </PageShell>
