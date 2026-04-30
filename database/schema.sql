@@ -170,6 +170,34 @@ CREATE TABLE IF NOT EXISTS ai_system_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS ai_workspaces (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(160) NOT NULL UNIQUE,
+  slug VARCHAR(160) NOT NULL UNIQUE,
+  description TEXT NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  display_name VARCHAR(160) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_workspace_memberships (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  workspace_id UUID NOT NULL REFERENCES ai_workspaces(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES ai_users(id) ON DELETE CASCADE,
+  role_key VARCHAR(40) NOT NULL CHECK (role_key IN ('owner', 'admin', 'operator', 'viewer')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (workspace_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS ai_workflow_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(160) NOT NULL UNIQUE,
@@ -260,6 +288,9 @@ CREATE INDEX IF NOT EXISTS idx_ai_mcp_servers_status ON ai_mcp_servers(status);
 CREATE INDEX IF NOT EXISTS idx_ai_mcp_tools_server_id ON ai_mcp_tools(server_id);
 CREATE INDEX IF NOT EXISTS idx_ai_system_settings_category ON ai_system_settings(category);
 CREATE INDEX IF NOT EXISTS idx_ai_workflow_templates_priority ON ai_workflow_templates(default_priority);
+CREATE INDEX IF NOT EXISTS idx_ai_workspaces_status ON ai_workspaces(status);
+CREATE INDEX IF NOT EXISTS idx_ai_workspace_memberships_workspace ON ai_workspace_memberships(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_ai_workspace_memberships_user ON ai_workspace_memberships(user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_offices_default ON ai_offices(is_default);
 CREATE INDEX IF NOT EXISTS idx_ai_office_zones_office_order ON ai_office_zones(office_id, display_order);
 CREATE INDEX IF NOT EXISTS idx_ai_office_stations_zone_status ON ai_office_stations(zone_id, status);
@@ -288,6 +319,10 @@ DROP TRIGGER IF EXISTS trg_ai_system_settings_updated_at ON ai_system_settings;
 CREATE TRIGGER trg_ai_system_settings_updated_at BEFORE UPDATE ON ai_system_settings FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_workflow_templates_updated_at ON ai_workflow_templates;
 CREATE TRIGGER trg_ai_workflow_templates_updated_at BEFORE UPDATE ON ai_workflow_templates FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_ai_workspaces_updated_at ON ai_workspaces;
+CREATE TRIGGER trg_ai_workspaces_updated_at BEFORE UPDATE ON ai_workspaces FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_ai_users_updated_at ON ai_users;
+CREATE TRIGGER trg_ai_users_updated_at BEFORE UPDATE ON ai_users FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_offices_updated_at ON ai_offices;
 CREATE TRIGGER trg_ai_offices_updated_at BEFORE UPDATE ON ai_offices FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_office_zones_updated_at ON ai_office_zones;

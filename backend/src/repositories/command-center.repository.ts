@@ -218,6 +218,38 @@ export const commandCenterRepository = {
     const result = await pool.query('SELECT * FROM ai_mcp_tools ORDER BY name ASC');
     return result.rows;
   },
+  async getWorkspaces() {
+    const result = await pool.query(
+      `SELECT workspace.*, 
+              COUNT(DISTINCT membership.id) AS member_count,
+              COUNT(DISTINCT CASE WHEN membership.role_key = 'owner' THEN membership.id END) AS owner_count
+       FROM ai_workspaces workspace
+       LEFT JOIN ai_workspace_memberships membership ON membership.workspace_id = workspace.id
+       GROUP BY workspace.id
+       ORDER BY workspace.created_at DESC`,
+    );
+    return result.rows;
+  },
+  async createWorkspace(payload: any) {
+    const result = await pool.query(
+      `WITH created_workspace AS (
+         INSERT INTO ai_workspaces (name, slug, description, status)
+         VALUES ($1,$2,$3,'active') RETURNING *
+       ), created_user AS (
+         INSERT INTO ai_users (display_name, email, status)
+         VALUES ($4,$5,'active')
+         ON CONFLICT (email) DO UPDATE SET display_name = EXCLUDED.display_name
+         RETURNING *
+       ), created_membership AS (
+         INSERT INTO ai_workspace_memberships (workspace_id, user_id, role_key)
+         SELECT created_workspace.id, created_user.id, 'owner' FROM created_workspace, created_user
+         ON CONFLICT (workspace_id, user_id) DO NOTHING
+       )
+       SELECT * FROM created_workspace`,
+      [payload.name, payload.slug, payload.description, payload.ownerName, payload.ownerEmail],
+    );
+    return result.rows[0];
+  },
   async getWorkflowTemplates() {
     const result = await pool.query('SELECT * FROM ai_workflow_templates ORDER BY created_at DESC');
     return result.rows;

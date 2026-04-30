@@ -1000,6 +1000,14 @@ export const commandCenterService = {
   async listMcpTools() {
     return commandCenterRepository.getMcpTools();
   },
+  async listWorkspaces() {
+    return commandCenterRepository.getWorkspaces();
+  },
+  async createWorkspace(payload: any) {
+    const workspace = await commandCenterRepository.createWorkspace(payload);
+    await commandCenterRepository.createAuditLog({ actor: payload.ownerName, action: 'workspace_created', moduleName: 'workspaces', payloadSummary: { workspaceId: workspace.id, slug: payload.slug }, resultStatus: 'success', severity: 'info' });
+    return workspace;
+  },
   async listWorkflowTemplates() {
     return commandCenterRepository.getWorkflowTemplates();
   },

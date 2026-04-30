@@ -17,6 +17,7 @@ const SkillsPage = lazy(() => import('./pages/SkillsPage').then((module) => ({ d
 const TaskDetailPage = lazy(() => import('./pages/TaskDetailPage').then((module) => ({ default: module.TaskDetailPage })));
 const TasksPage = lazy(() => import('./pages/TasksPage').then((module) => ({ default: module.TasksPage })));
 const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage').then((module) => ({ default: module.WorkflowsPage })));
+const WorkspacesPage = lazy(() => import('./pages/WorkspacesPage').then((module) => ({ default: module.WorkspacesPage })));
 
 function RouteFallback() {
   return (
@@ -64,6 +65,7 @@ export function App() {
                 <Route path="/tasks" element={<TasksPage />} />
                 <Route path="/tasks/:taskId" element={<TaskDetailPage />} />
                 <Route path="/workflows" element={<WorkflowsPage />} />
+                <Route path="/workspaces" element={<WorkspacesPage />} />
                 <Route path="/runs" element={<RunsPage />} />
                 <Route path="/console" element={<CommandConsolePage />} />
                 <Route path="/approvals" element={<ApprovalsPage />} />
