@@ -28,6 +28,7 @@ export type McpServer = { id: string; name: string; description: string; transpo
 export type McpTool = { id: string; server_id: string; name: string; description: string; permission_level: string; status: string; };
 export type SystemSetting = { id: string; setting_key: string; setting_value: unknown; category: string; is_sensitive: boolean; description: string; };
 export type ConsoleSnapshot = { availableAgents: Array<{ name: string; type: string; status: string }>; availableSkills: Array<{ canonicalName: string; type: string }>; logs: Array<{ timestamp: string; level: string; message: string }>; commandWhitelist: string[]; mode: string; };
+export type GlobalSearchResult = { id: string; type: string; title: string; subtitle: string; href: string };
 
 export type Office = { id: string; slug: string; name: string; description: string; gridColumns: number; gridRows: number; metadata?: Record<string, unknown>; };
 export type OfficeStation = { id: string; code: string; name: string; stationType: string; status: string; capacity: number; assignmentCount: number; availableCapacity: number; isOverCapacity: boolean; };

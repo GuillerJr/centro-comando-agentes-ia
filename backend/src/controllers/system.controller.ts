@@ -12,6 +12,11 @@ export const systemController = {
     const data = await commandCenterService.getDashboard();
     return response.json(successResponse('Dashboard loaded', data));
   },
+  async search(request: Request, response: Response) {
+    const query = String(request.query.q ?? '');
+    const data = await commandCenterService.globalSearch(query);
+    return response.json(successResponse('Search results loaded', data));
+  },
   async openClawStatus(_request: Request, response: Response) {
     const data = await commandCenterService.getOpenClawStatus();
     return response.json(successResponse('OpenClaw status loaded', data));

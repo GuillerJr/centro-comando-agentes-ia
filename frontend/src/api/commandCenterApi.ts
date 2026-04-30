@@ -1,8 +1,9 @@
-import type { Agent, Approval, AuditLog, ConsoleSnapshot, DashboardData, McpServer, McpTool, OfficeLayout, OfficeState, Skill, SystemSetting, Task, TaskRun } from '../types/domain';
+import type { Agent, Approval, AuditLog, ConsoleSnapshot, DashboardData, GlobalSearchResult, McpServer, McpTool, OfficeLayout, OfficeState, Skill, SystemSetting, Task, TaskRun } from '../types/domain';
 import { apiRequest } from './client';
 
 export const commandCenterApi = {
   getDashboard: () => apiRequest<DashboardData>('/system/dashboard'),
+  globalSearch: (query: string) => apiRequest<GlobalSearchResult[]>(`/system/search?q=${encodeURIComponent(query)}`),
   getHealth: () => apiRequest('/system/health'),
   getOpenClawStatus: () => apiRequest('/system/openclaw/status'),
   validateOpenClawConnection: (mode?: string) => apiRequest('/system/openclaw/validate-connection', { method: 'POST', body: JSON.stringify({ mode }) }),

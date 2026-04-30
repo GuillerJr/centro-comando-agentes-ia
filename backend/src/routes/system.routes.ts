@@ -6,6 +6,7 @@ const router = Router();
 
 router.get('/health', asyncHandler(systemController.health));
 router.get('/dashboard', asyncHandler(systemController.dashboard));
+router.get('/search', asyncHandler(systemController.search));
 router.get('/openclaw/status', asyncHandler(systemController.openClawStatus));
 router.post('/openclaw/validate-connection', asyncHandler(systemController.validateConnection));
 router.get('/command-console', asyncHandler(systemController.commandConsole));

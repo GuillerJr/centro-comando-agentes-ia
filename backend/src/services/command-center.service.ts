@@ -413,6 +413,30 @@ async function syncStationOccupancy(stationId: string, assignments: OfficeAssign
 }
 
 export const commandCenterService = {
+  async globalSearch(query: string) {
+    const term = query.trim().toLowerCase();
+    if (!term) return [];
+    const [agents, skills, tasks, runs, approvals, settings, servers] = await Promise.all([
+      commandCenterRepository.getAgents(),
+      commandCenterRepository.getSkills(),
+      commandCenterRepository.getTasks(),
+      commandCenterRepository.getRuns(),
+      commandCenterRepository.getApprovals(),
+      commandCenterRepository.getSystemSettings(),
+      commandCenterRepository.getMcpServers(),
+    ]);
+
+    const results = [
+      ...agents.filter((item: any) => `${item.name} ${item.description} ${item.agent_type}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'agent', title: item.name, subtitle: item.description, href: '/agents' })),
+      ...skills.filter((item: any) => `${item.canonical_name} ${item.description} ${item.skill_type}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'skill', title: item.canonical_name, subtitle: item.description, href: '/skills' })),
+      ...tasks.filter((item: any) => `${item.title} ${item.description} ${item.task_type}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'task', title: item.title, subtitle: item.description, href: `/tasks/${item.id}` })),
+      ...runs.filter((item: any) => `${item.trace_id} ${item.requested_action}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'run', title: item.trace_id, subtitle: item.requested_action, href: '/runs' })),
+      ...approvals.filter((item: any) => `${item.approval_type} ${item.reason} ${item.requested_by}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'approval', title: item.approval_type, subtitle: item.reason, href: '/approvals' })),
+      ...settings.filter((item: any) => `${item.setting_key} ${item.description} ${item.category}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'setting', title: item.setting_key, subtitle: item.description, href: '/settings' })),
+      ...servers.filter((item: any) => `${item.name} ${item.description} ${item.transport_type}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'mcp', title: item.name, subtitle: item.description, href: '/mcp' })),
+    ];
+    return results.slice(0, 20);
+  },
   async getDashboard() {
     const [metrics, latestRuns, auditLogs, openClawStatus, settings, mcpServers] = await Promise.all([
       commandCenterRepository.getDashboardMetrics(),
