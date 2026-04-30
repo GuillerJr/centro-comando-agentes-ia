@@ -3,7 +3,7 @@ import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { Modal } from '../components/modal';
-import { ActionFeedback, DataTable, ErrorState, FormField, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { ActionFeedback, ChipGroup, DataTable, ErrorState, FormField, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge, formatDisplayText } from '../components/ui';
 import type { Workspace } from '../types/domain';
 
 export function WorkspacesPage() {
@@ -68,14 +68,27 @@ export function WorkspacesPage() {
 
       <SectionCard title="Inventario de espacios" subtitle="Primer paso para evolucionar hacia aislamiento multi-contexto, roles y propiedad real.">
         <DataTable
-          columns={['Espacio', 'Estado', 'Slug', 'Miembros', 'Responsables']}
+          columns={['Espacio', 'Estado', 'Slug', 'Miembros', 'Responsables', 'Roles visibles']}
           rows={workspaces.map((workspace) => [
             <div className="max-w-md"><p className="text-sm font-semibold text-white">{workspace.name}</p><p className="mt-1 text-xs text-zinc-500">{workspace.description}</p></div>,
             <StatusBadge status={workspace.status} />,
             <span className="font-mono text-xs text-zinc-400">{workspace.slug}</span>,
             <span className="text-sm text-zinc-300">{workspace.member_count}</span>,
             <span className="text-sm text-zinc-300">{workspace.owner_count}</span>,
+            <ChipGroup items={(workspace.memberships ?? []).map((membership) => `${membership.display_name}: ${formatDisplayText(membership.role_key)}`)} emptyLabel="Sin roles" />,
           ])}
+        />
+      </SectionCard>
+
+      <SectionCard title="Matriz inicial de roles" subtitle="Lectura visible de membresías por espacio para preparar la futura gobernanza real.">
+        <DataTable
+          columns={['Espacio', 'Persona', 'Rol', 'Estado']}
+          rows={workspaces.flatMap((workspace) => (workspace.memberships ?? []).map((membership) => [
+            <span className="text-sm font-semibold text-white">{workspace.name}</span>,
+            <div><p className="text-sm text-zinc-200">{membership.display_name}</p><p className="text-xs text-zinc-500">{membership.email}</p></div>,
+            <span className="text-sm text-zinc-300">{formatDisplayText(membership.role_key)}</span>,
+            <StatusBadge status={membership.user_status} />,
+          ]))}
         />
       </SectionCard>
 

@@ -1010,7 +1010,14 @@ export const commandCenterService = {
     return commandCenterRepository.getMcpTools();
   },
   async listWorkspaces() {
-    return commandCenterRepository.getWorkspaces();
+    const [workspaces, memberships] = await Promise.all([
+      commandCenterRepository.getWorkspaces(),
+      commandCenterRepository.getWorkspaceMemberships(),
+    ]);
+    return workspaces.map((workspace) => ({
+      ...workspace,
+      memberships: memberships.filter((membership) => membership.workspace_id === workspace.id),
+    }));
   },
   async createWorkspace(payload: any) {
     const workspace = await commandCenterRepository.createWorkspace(payload);
