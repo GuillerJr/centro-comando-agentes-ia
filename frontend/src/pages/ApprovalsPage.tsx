@@ -75,10 +75,11 @@ export function ApprovalsPage() {
       {actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
       {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
       <StatsGrid
-        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"
         items={[
           { eyebrow: 'Pendientes', title: `${pendingCount} por resolver`, description: 'Solicitudes sensibles esperando decisión humana explícita.', tone: pendingCount > 0 ? 'warning' : 'success' },
           { eyebrow: 'Resueltas', title: `${approvals.filter((approval) => approval.status !== 'pending').length} cerradas`, description: 'Aprobaciones que ya cuentan con resolución trazable.', tone: 'default' },
+          { eyebrow: 'Misiones críticas', title: `${approvals.filter((approval) => String(approval.payload_summary?.riskLevel ?? '') === 'critical').length}`, description: 'Aprobaciones ligadas a misiones de riesgo crítico.', tone: 'danger' },
           { eyebrow: 'Gobernanza', title: 'Control humano activo', description: 'La operación mantiene una puerta manual antes de ejecutar acciones sensibles.', tone: 'success' },
         ]}
       />
@@ -90,13 +91,13 @@ export function ApprovalsPage() {
             <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="pending">pending</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="executed">executed</option></select>
           </div>
           <DataTable
-            columns={['Tipo', 'Misión', 'Estado', 'Motivo', 'Payload', 'Acciones']}
+            columns={['Tipo', 'Misión', 'Estado', 'Motivo', 'Impacto', 'Acciones']}
             rows={filteredApprovals.map((approval) => [
               <div className="text-sm font-medium text-white">{formatDisplayText(approval.approval_type)}</div>,
               <div><div className="text-sm text-zinc-300">{approval.mission_title ?? 'Sin misión enlazada'}</div><div className="mt-1 text-xs text-zinc-500">{approval.task_title ?? approval.requested_by}</div></div>,
               <StatusBadge status={approval.status} />,
               <div className="text-sm leading-6 text-zinc-400">{approval.reason}</div>,
-              <pre className="max-w-[16rem] overflow-x-auto whitespace-pre-wrap text-[11px] text-zinc-500">{formatValue(approval.payload_summary)}</pre>,
+              <div className="max-w-[16rem] text-xs leading-6 text-zinc-400"><p>Riesgo: {formatDisplayText(String(approval.payload_summary?.riskLevel ?? 'medium'))}</p><p>Modo: {approval.payload_summary?.sandbox ? 'sandbox' : 'real'}</p><p>Acciones: {Array.isArray(approval.payload_summary?.sensitiveActions) ? approval.payload_summary.sensitiveActions.length : 0}</p></div>,
               approval.status === 'pending' ? <div className="flex flex-wrap gap-2"><Button size="sm" variant="success" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'approve')}>Aprobar</Button><Button size="sm" variant="danger" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'reject')}>Rechazar</Button></div> : approval.status === 'approved' ? <Button size="sm" variant="secondary" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'execute')}>Ejecutar</Button> : <span className="text-xs uppercase tracking-[0.16em] text-zinc-500">Cerrada</span>,
             ])}
           />
@@ -112,6 +113,7 @@ export function ApprovalsPage() {
               ['Estado', <StatusBadge status={latestApproval.status} />],
               ['Estado de misión', latestApproval.mission_status ? <StatusBadge status={latestApproval.mission_status} /> : 'Sin misión'],
               ['Notas', <div className="text-sm leading-6 text-zinc-400">{latestApproval.execution_notes ?? 'Sin notas todavía'}</div>],
+              ['Impacto', <div className="text-sm leading-6 text-zinc-300">Riesgo {formatDisplayText(String(latestApproval.payload_summary?.riskLevel ?? 'medium'))}, modo {latestApproval.payload_summary?.sandbox ? 'sandbox' : 'real'} y {Array.isArray(latestApproval.payload_summary?.sensitiveActions) ? latestApproval.payload_summary.sensitiveActions.length : 0} acciones sensibles detectadas.</div>],
               ['Payload', <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">{formatValue(latestApproval.payload_summary)}</pre>],
             ]}
           /> : <EmptyState title="Sin aprobaciones recientes" description="Todavía no hay solicitudes para resumir en este panel lateral." />}

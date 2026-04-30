@@ -605,7 +605,15 @@ export const commandCenterService = {
         approvalType: 'config_change',
         reason: `La misión requiere revisión humana por riesgo ${mission.risk_level}.`,
         requestedBy: mission.created_by,
-        payloadSummary: { missionId: mission.id, sensitiveActions: mission.sensitive_actions, objective: mission.objective },
+        payloadSummary: {
+          missionId: mission.id,
+          missionTitle: mission.title,
+          riskLevel: mission.risk_level,
+          sensitiveActions: mission.sensitive_actions,
+          requiredPermissions: mission.required_permissions,
+          objective: mission.objective,
+          sandbox: Boolean((mission.metadata as Record<string, unknown>)?.sandbox),
+        },
       });
     }
     await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_started', moduleName: 'missions', payloadSummary: { missionId, taskId: task.id }, resultStatus: 'success', severity: mission.requires_approval ? 'warning' : 'info' });
