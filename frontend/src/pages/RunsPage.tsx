@@ -3,6 +3,7 @@ import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { ActionFeedback, DataTable, EmptyState, ErrorState, formatDateTime, formatDisplayText, formatDuration, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { usePersistedFilters } from '../hooks/use-persisted-filters';
 import type { TaskRun } from '../types/domain';
 
 export function RunsPage() {
@@ -11,8 +12,7 @@ export function RunsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const { filters, set } = usePersistedFilters({ storageKey: 'cc-filters-runs', initialState: { search: '', statusFilter: 'all' } });
 
   const loadRuns = async () => {
     try {
@@ -54,8 +54,8 @@ export function RunsPage() {
   if (isLoading) return <LoadingState label="Cargando ejecuciones..." />;
 
   const filteredRuns = runs.filter((run) => {
-    const matchesSearch = `${run.trace_id} ${run.task_id} ${run.requested_action}`.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || run.status === statusFilter;
+    const matchesSearch = `${run.trace_id} ${run.task_id} ${run.requested_action}`.toLowerCase().includes(filters.search.toLowerCase());
+    const matchesStatus = filters.statusFilter === 'all' || run.status === filters.statusFilter;
     return matchesSearch && matchesStatus;
   });
   const lastRun = filteredRuns[0] ?? runs[0];
@@ -77,8 +77,8 @@ export function RunsPage() {
       <div className="grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
         <SectionCard title="Registro de ejecuciones" subtitle="Control de estado, reintento y cancelación desde tabla.">
           <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-            <Input placeholder="Buscar run o traza..." value={search} onChange={(event) => setSearch(event.target.value)} />
-            <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="queued">queued</option><option value="running">running</option><option value="completed">completed</option><option value="failed">failed</option><option value="cancelled">cancelled</option></select>
+            <Input placeholder="Buscar run o traza..." value={filters.search} onChange={(event) => set('search', event.target.value)} />
+            <select className="panel-input" value={filters.statusFilter} onChange={(event) => set('statusFilter', event.target.value)}><option value="all">todos los estados</option><option value="queued">queued</option><option value="running">running</option><option value="completed">completed</option><option value="failed">failed</option><option value="cancelled">cancelled</option></select>
           </div>
           <DataTable
             columns={['Traza', 'Tarea', 'Modo', 'Estado', 'Duración', 'Fecha', 'Acciones']}

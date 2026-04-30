@@ -5,6 +5,7 @@ import { Input } from '../components/input';
 import { Modal } from '../components/modal';
 import { CreateButton, IconEditButton, IconToggleButton } from '../components/table-actions';
 import { ActionFeedback, DataTable, ErrorState, FormField, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { usePersistedFilters } from '../hooks/use-persisted-filters';
 import type { Agent } from '../types/domain';
 import { agentFormSchema } from '../utils/validation';
 
@@ -19,8 +20,7 @@ export function AgentsPage() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const { filters, set } = usePersistedFilters({ storageKey: 'cc-filters-agents', initialState: { search: '', statusFilter: 'all' } });
 
   const loadAgents = async () => {
     try {
@@ -126,8 +126,8 @@ export function AgentsPage() {
   if (isLoading) return <LoadingState label="Cargando agentes..." />;
 
   const filteredAgents = agents.filter((agent) => {
-    const matchesSearch = `${agent.name} ${agent.description} ${agent.agent_type}`.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || agent.status === statusFilter;
+    const matchesSearch = `${agent.name} ${agent.description} ${agent.agent_type}`.toLowerCase().includes(filters.search.toLowerCase());
+    const matchesStatus = filters.statusFilter === 'all' || agent.status === filters.statusFilter;
     return matchesSearch && matchesStatus;
   });
   const activeAgents = agents.filter((agent) => agent.status === 'active').length;
@@ -160,8 +160,8 @@ export function AgentsPage() {
 
       <SectionCard title="Registro de agentes" subtitle="Gestión centralizada mediante tabla, acciones compactas y modales." action={<CreateButton label="Crear agente" onClick={openCreate} />}>
         <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-          <Input placeholder="Buscar agente..." value={search} onChange={(event) => setSearch(event.target.value)} />
-          <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="active">activos</option><option value="inactive">inactivos</option><option value="error">error</option><option value="maintenance">mantenimiento</option></select>
+          <Input placeholder="Buscar agente..." value={filters.search} onChange={(event) => set('search', event.target.value)} />
+          <select className="panel-input" value={filters.statusFilter} onChange={(event) => set('statusFilter', event.target.value)}><option value="all">todos los estados</option><option value="active">activos</option><option value="inactive">inactivos</option><option value="error">error</option><option value="maintenance">mantenimiento</option></select>
         </div>
         <DataTable
           columns={['Nombre', 'Tipo', 'Estado', 'Prioridad', 'Límite', 'Acciones']}

@@ -5,6 +5,7 @@ import { Input } from '../components/input';
 import { Modal } from '../components/modal';
 import { CreateButton, IconEditButton, IconToggleButton } from '../components/table-actions';
 import { ActionFeedback, DataTable, ErrorState, FormField, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { usePersistedFilters } from '../hooks/use-persisted-filters';
 import type { Skill } from '../types/domain';
 import { skillFormSchema } from '../utils/validation';
 
@@ -19,8 +20,7 @@ export function SkillsPage() {
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const { filters, set } = usePersistedFilters({ storageKey: 'cc-filters-skills', initialState: { search: '', statusFilter: 'all' } });
 
   const loadSkills = async () => {
     try {
@@ -116,8 +116,8 @@ export function SkillsPage() {
   if (isLoading) return <LoadingState label="Cargando capacidades..." />;
 
   const filteredSkills = skills.filter((skill) => {
-    const matchesSearch = `${skill.canonical_name} ${skill.description} ${skill.skill_type}`.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || skill.status === statusFilter;
+    const matchesSearch = `${skill.canonical_name} ${skill.description} ${skill.skill_type}`.toLowerCase().includes(filters.search.toLowerCase());
+    const matchesStatus = filters.statusFilter === 'all' || skill.status === filters.statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -147,8 +147,8 @@ export function SkillsPage() {
 
       <SectionCard title="Registro de capacidades" subtitle="Gestión centralizada mediante tabla y modales." action={<CreateButton label="Crear capacidad" onClick={openCreate} />}>
         <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-          <Input placeholder="Buscar capacidad..." value={search} onChange={(event) => setSearch(event.target.value)} />
-          <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="active">activas</option><option value="inactive">inactivas</option><option value="deprecated">deprecated</option></select>
+          <Input placeholder="Buscar capacidad..." value={filters.search} onChange={(event) => set('search', event.target.value)} />
+          <select className="panel-input" value={filters.statusFilter} onChange={(event) => set('statusFilter', event.target.value)}><option value="all">todos los estados</option><option value="active">activas</option><option value="inactive">inactivas</option><option value="deprecated">deprecated</option></select>
         </div>
         <DataTable
           columns={['Canónico', 'Tipo', 'Estado', 'Uso', 'Acciones']}

@@ -6,6 +6,7 @@ import { Input } from '../components/input';
 import { Modal } from '../components/modal';
 import { CreateButton, IconCancelButton, IconEditButton } from '../components/table-actions';
 import { ActionFeedback, ConfirmDialog, DataTable, ErrorState, FormField, formatDisplayText, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
+import { usePersistedFilters } from '../hooks/use-persisted-filters';
 import type { Task } from '../types/domain';
 import { taskFormSchema } from '../utils/validation';
 
@@ -20,8 +21,7 @@ export function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const { filters, set } = usePersistedFilters({ storageKey: 'cc-filters-tasks', initialState: { search: '', statusFilter: 'all' } });
 
   const loadTasks = async () => {
     try {
@@ -174,8 +174,8 @@ export function TasksPage() {
   if (isLoading) return <LoadingState label="Cargando tareas..." />;
 
   const filteredTasks = tasks.filter((task) => {
-    const matchesSearch = `${task.title} ${task.description} ${task.task_type}`.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+    const matchesSearch = `${task.title} ${task.description} ${task.task_type}`.toLowerCase().includes(filters.search.toLowerCase());
+    const matchesStatus = filters.statusFilter === 'all' || task.status === filters.statusFilter;
     return matchesSearch && matchesStatus;
   });
 
@@ -206,8 +206,8 @@ export function TasksPage() {
 
       <SectionCard title="Cola de tareas" subtitle="Gestión centralizada con tabla, acciones compactas y modales." action={<CreateButton label="Crear tarea" onClick={openCreate} />}>
         <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-          <Input placeholder="Buscar tarea..." value={search} onChange={(event) => setSearch(event.target.value)} />
-          <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="pending">pendientes</option><option value="running">running</option><option value="awaiting_approval">esperando aprobación</option><option value="completed">completadas</option><option value="failed">fallidas</option><option value="cancelled">canceladas</option></select>
+          <Input placeholder="Buscar tarea..." value={filters.search} onChange={(event) => set('search', event.target.value)} />
+          <select className="panel-input" value={filters.statusFilter} onChange={(event) => set('statusFilter', event.target.value)}><option value="all">todos los estados</option><option value="pending">pendientes</option><option value="running">running</option><option value="awaiting_approval">esperando aprobación</option><option value="completed">completadas</option><option value="failed">fallidas</option><option value="cancelled">canceladas</option></select>
         </div>
         <DataTable
           columns={['Título', 'Prioridad', 'Tipo', 'Estado', 'Detalle', 'Acciones']}
