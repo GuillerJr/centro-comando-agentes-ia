@@ -38,4 +38,18 @@ export const missionsController = {
     const data = await commandCenterService.startMission(missionId);
     return response.json(successResponse('Misión iniciada', data));
   },
+
+  // Pausa una misión desde la capa de mando para frenar el flujo superior.
+  async pause(request: Request, response: Response) {
+    const { missionId } = missionIdParamsSchema.parse(request.params);
+    const data = await commandCenterService.pauseMission(missionId);
+    return response.json(successResponse('Misión pausada', data));
+  },
+
+  // Reanuda una misión siempre que no siga bloqueada por gobernanza.
+  async resume(request: Request, response: Response) {
+    const { missionId } = missionIdParamsSchema.parse(request.params);
+    const data = await commandCenterService.resumeMission(missionId);
+    return response.json(successResponse('Misión reanudada', data));
+  },
 };

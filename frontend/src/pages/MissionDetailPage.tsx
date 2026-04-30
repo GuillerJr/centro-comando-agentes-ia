@@ -72,6 +72,27 @@ export function MissionDetailPage() {
     }
   };
 
+  const handleMissionState = async (action: 'pause' | 'resume') => {
+    if (!missionId) return;
+    try {
+      setIsSaving(true);
+      setError(null);
+      setFeedback(null);
+      if (action === 'pause') {
+        await commandCenterApi.pauseMission(missionId);
+        setFeedback('La misión quedó pausada desde este detalle.');
+      } else {
+        await commandCenterApi.resumeMission(missionId);
+        setFeedback('La misión se reanudó según sus controles vigentes.');
+      }
+      await loadMission();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo cambiar el estado de la misión.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => navigate('/missions')}>Volver</Button>} />;
   if (isLoading || !mission) return <LoadingState label="Cargando detalle de misión..." />;
 
@@ -93,6 +114,8 @@ export function MissionDetailPage() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Button onClick={() => void handleSave()} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar planificación'}</Button>
+              {mission.status === 'running' ? <Button variant="secondary" onClick={() => void handleMissionState('pause')} disabled={isSaving}>Pausar misión</Button> : null}
+              {mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button variant="secondary" onClick={() => void handleMissionState('resume')} disabled={isSaving}>Reanudar misión</Button> : null}
               <Button variant="secondary" onClick={() => navigate('/missions')}>Volver a misiones</Button>
             </div>
           </div>

@@ -575,6 +575,71 @@ export const commandCenterService = {
     await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_started', moduleName: 'missions', payloadSummary: { missionId, taskId: task.id }, resultStatus: 'success', severity: mission.requires_approval ? 'warning' : 'info' });
     return { mission: updatedMission, task, requiresApproval: mission.requires_approval };
   },
+  // Pausa una misión y marca sus tareas vivas como pendientes de reanudación.
+  async pauseMission(missionId: string) {
+    const mission = await this.getMissionById(missionId) as MissionRecord & { related_tasks?: TaskRecord[] };
+    const updatedMission = await commandCenterRepository.updateMission(missionId, {
+      title: mission.title,
+      description: mission.description,
+      objective: mission.objective,
+      status: 'paused',
+      priority: mission.priority,
+      riskLevel: mission.risk_level,
+      assignedAgentId: mission.assigned_agent_id,
+      createdBy: mission.created_by,
+      summary: mission.summary,
+      estimatedSteps: mission.estimated_steps,
+      requiresApproval: mission.requires_approval,
+      sensitiveActions: mission.sensitive_actions,
+      requiredIntegrations: mission.required_integrations,
+      requiredPermissions: mission.required_permissions,
+      plan: mission.plan_json,
+      metadata: mission.metadata,
+      startedAt: mission.started_at,
+      completedAt: mission.completed_at,
+    });
+    for (const task of mission.related_tasks ?? []) {
+      if (!['completed', 'failed', 'cancelled'].includes(task.status)) {
+        await commandCenterRepository.updateTask(task.id, toTaskUpdatePayload(task as TaskRecord, { status: 'pending' }));
+      }
+    }
+    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_paused', moduleName: 'missions', payloadSummary: { missionId }, resultStatus: 'warning', severity: 'warning' });
+    return updatedMission;
+  },
+  // Reanuda una misión pausada si no sigue bloqueada por política o aprobación.
+  async resumeMission(missionId: string) {
+    const mission = await this.getMissionById(missionId) as MissionRecord & { related_tasks?: TaskRecord[]; related_approvals?: Array<{ status: string }> };
+    const pendingApproval = (mission.related_approvals ?? []).some((approval) => approval.status === 'pending');
+    const blockedByPolicy = Boolean((mission.metadata as Record<string, any>)?.decisionesPolitica?.bloqueaPorPolitica);
+    const nextStatus = pendingApproval ? 'waiting_for_approval' : blockedByPolicy ? 'blocked' : 'running';
+    const updatedMission = await commandCenterRepository.updateMission(missionId, {
+      title: mission.title,
+      description: mission.description,
+      objective: mission.objective,
+      status: nextStatus,
+      priority: mission.priority,
+      riskLevel: mission.risk_level,
+      assignedAgentId: mission.assigned_agent_id,
+      createdBy: mission.created_by,
+      summary: mission.summary,
+      estimatedSteps: mission.estimated_steps,
+      requiresApproval: mission.requires_approval,
+      sensitiveActions: mission.sensitive_actions,
+      requiredIntegrations: mission.required_integrations,
+      requiredPermissions: mission.required_permissions,
+      plan: mission.plan_json,
+      metadata: mission.metadata,
+      startedAt: mission.started_at,
+      completedAt: mission.completed_at,
+    });
+    for (const task of mission.related_tasks ?? []) {
+      if (!['completed', 'failed', 'cancelled'].includes(task.status)) {
+        await commandCenterRepository.updateTask(task.id, toTaskUpdatePayload(task as TaskRecord, { status: pendingApproval ? 'awaiting_approval' : 'pending' }));
+      }
+    }
+    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_resumed', moduleName: 'missions', payloadSummary: { missionId, nextStatus }, resultStatus: 'success', severity: pendingApproval || blockedByPolicy ? 'warning' : 'info' });
+    return updatedMission;
+  },
   async globalSearch(query: string) {
     const term = query.trim().toLowerCase();
     if (!term) return [];

@@ -67,6 +67,23 @@ export function MissionsPage() {
     }
   };
 
+  const handleMissionState = async (missionId: string, action: 'pause' | 'resume') => {
+    try {
+      setError(null);
+      setFeedback(null);
+      if (action === 'pause') {
+        await commandCenterApi.pauseMission(missionId);
+        setFeedback('La misión quedó pausada desde el centro de mando.');
+      } else {
+        await commandCenterApi.resumeMission(missionId);
+        setFeedback('La misión se reanudó según su estado de gobernanza.');
+      }
+      await loadMissions();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo cambiar el estado de la misión.');
+    }
+  };
+
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => void loadMissions()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando misiones..." />;
 
@@ -94,7 +111,7 @@ export function MissionsPage() {
             <StatusBadge status={mission.risk_level} />,
             <span className="text-sm text-zinc-300">{mission.estimated_steps}</span>,
             <ChipGroup items={mission.sensitive_actions} emptyLabel="Sin acciones sensibles" />,
-            <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link><Button size="sm" onClick={() => void handleStartMission(mission.id)} disabled={mission.status !== 'planned'}>{mission.status === 'planned' ? 'Iniciar misión' : 'En seguimiento'}</Button></div>,
+            <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link>{mission.status === 'planned' ? <Button size="sm" onClick={() => void handleStartMission(mission.id)}>Iniciar misión</Button> : null}{mission.status === 'running' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'pause')}>Pausar</Button> : null}{mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'resume')}>Reanudar</Button> : null}</div>,
           ])}
         />
       </SectionCard>
