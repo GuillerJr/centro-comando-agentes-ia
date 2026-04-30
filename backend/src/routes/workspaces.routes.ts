@@ -8,5 +8,7 @@ const router = Router();
 router.use(requireFutureAuth);
 router.get('/', asyncHandler(workspacesController.list));
 router.post('/', asyncHandler(workspacesController.create));
+router.put('/:workspaceId', asyncHandler(workspacesController.update));
+router.post('/:workspaceId/memberships', asyncHandler(workspacesController.createMembership));
 
 export default router;

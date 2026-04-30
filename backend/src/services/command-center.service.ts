@@ -201,6 +201,10 @@ function canOperateWorkspace(roleKey?: string | null) {
   return ['owner', 'admin', 'operator'].includes(String(roleKey ?? ''));
 }
 
+function canManageWorkspace(roleKey?: string | null) {
+  return ['owner', 'admin'].includes(String(roleKey ?? ''));
+}
+
 async function ensureWorkspaceMissionAccess(mission: { metadata?: Record<string, unknown> }, actorName: string) {
   const workspaceId = String(mission.metadata?.workspaceId ?? '');
   if (!workspaceId) return null;
@@ -1045,6 +1049,25 @@ export const commandCenterService = {
     const workspace = await commandCenterRepository.createWorkspace(payload);
     await commandCenterRepository.createAuditLog({ actor: payload.ownerName, action: 'workspace_created', moduleName: 'workspaces', payloadSummary: { workspaceId: workspace.id, slug: payload.slug }, resultStatus: 'success', severity: 'info' });
     return workspace;
+  },
+  async updateWorkspace(workspaceId: string, payload: any) {
+    const membership = await commandCenterRepository.getWorkspaceMembershipByName(workspaceId, payload.actorName);
+    if (!canManageWorkspace(membership?.role_key)) {
+      throw new AppError('El actor no tiene permisos para editar este espacio.', 403);
+    }
+    const workspace = await commandCenterRepository.updateWorkspace(workspaceId, payload);
+    if (!workspace) throw new AppError('Workspace not found', 404);
+    await commandCenterRepository.createAuditLog({ actor: payload.actorName, action: 'workspace_updated', moduleName: 'workspaces', payloadSummary: { workspaceId, workspaceRole: membership?.role_key ?? null }, resultStatus: 'success', severity: 'info' });
+    return workspace;
+  },
+  async createWorkspaceMembership(workspaceId: string, payload: any) {
+    const membership = await commandCenterRepository.getWorkspaceMembershipByName(workspaceId, payload.actorName);
+    if (!canManageWorkspace(membership?.role_key)) {
+      throw new AppError('El actor no tiene permisos para gestionar membresías en este espacio.', 403);
+    }
+    const createdMembership = await commandCenterRepository.createWorkspaceMembership({ workspaceId, displayName: payload.displayName, email: payload.email, roleKey: payload.roleKey });
+    await commandCenterRepository.createAuditLog({ actor: payload.actorName, action: 'workspace_membership_created', moduleName: 'workspaces', payloadSummary: { workspaceId, roleKey: payload.roleKey, workspaceRole: membership?.role_key ?? null }, resultStatus: 'success', severity: 'info' });
+    return createdMembership;
   },
   async listWorkflowTemplates() {
     return commandCenterRepository.getWorkflowTemplates();

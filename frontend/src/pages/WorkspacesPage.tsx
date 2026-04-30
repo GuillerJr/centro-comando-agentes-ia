@@ -13,7 +13,10 @@ export function WorkspacesPage() {
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [membershipModalOpen, setMembershipModalOpen] = useState(false);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('');
   const [form, setForm] = useState({ name: '', slug: '', description: '', ownerName: 'Guiller', ownerEmail: '' });
+  const [membershipForm, setMembershipForm] = useState({ displayName: '', email: '', roleKey: 'viewer' });
 
   const loadWorkspaces = async () => {
     try {
@@ -49,6 +52,20 @@ export function WorkspacesPage() {
     }
   };
 
+  const handleAddMembership = async (workspaceId: string) => {
+    try {
+      setError(null);
+      setFeedback(null);
+      await commandCenterApi.createWorkspaceMembership(workspaceId, { actorName: 'Guiller', ...membershipForm });
+      setFeedback('La membresía se registró correctamente.');
+      setMembershipModalOpen(false);
+      setMembershipForm({ displayName: '', email: '', roleKey: 'viewer' });
+      await loadWorkspaces();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'No se pudo crear la membresía.');
+    }
+  };
+
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => void loadWorkspaces()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando workspaces..." />;
 
@@ -75,7 +92,7 @@ export function WorkspacesPage() {
             <span className="font-mono text-xs text-zinc-400">{workspace.slug}</span>,
             <span className="text-sm text-zinc-300">{workspace.member_count}</span>,
             <span className="text-sm text-zinc-300">{workspace.owner_count}</span>,
-            <ChipGroup items={(workspace.memberships ?? []).map((membership) => `${membership.display_name}: ${formatDisplayText(membership.role_key)}`)} emptyLabel="Sin roles" />,
+            <div className="space-y-2"><ChipGroup items={(workspace.memberships ?? []).map((membership) => `${membership.display_name}: ${formatDisplayText(membership.role_key)}`)} emptyLabel="Sin roles" /><Button size="sm" variant="ghost" onClick={() => { setSelectedWorkspaceId(workspace.id); setMembershipModalOpen(true); }}>+Miembro</Button></div>,
           ])}
         />
       </SectionCard>
@@ -91,6 +108,15 @@ export function WorkspacesPage() {
           ]))}
         />
       </SectionCard>
+
+      <Modal open={membershipModalOpen} onOpenChange={setMembershipModalOpen} title="Añadir miembro" description="Solo propietario o administrador deben poder gestionar membresías.">
+        <div className="space-y-4">
+          <FormField label="Nombre visible"><Input value={membershipForm.displayName} onChange={(event) => setMembershipForm((current) => ({ ...current, displayName: event.target.value }))} /></FormField>
+          <FormField label="Email"><Input type="email" value={membershipForm.email} onChange={(event) => setMembershipForm((current) => ({ ...current, email: event.target.value }))} /></FormField>
+          <FormField label="Rol"><select className="panel-input" value={membershipForm.roleKey} onChange={(event) => setMembershipForm((current) => ({ ...current, roleKey: event.target.value }))}><option value="viewer">visor</option><option value="operator">operador</option><option value="admin">administrador</option><option value="owner">propietario</option></select></FormField>
+          <Button onClick={() => void handleAddMembership(selectedWorkspaceId)}>Guardar membresía</Button>
+        </div>
+      </Modal>
 
       <Modal open={modalOpen} onOpenChange={setModalOpen} title="Crear espacio" description="Define un espacio inicial con su responsable principal.">
         <form className="space-y-4" onSubmit={handleCreate}>

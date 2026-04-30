@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createWorkspaceSchema } from '../schemas/workspace.schemas.js';
+import { createWorkspaceMembershipSchema, createWorkspaceSchema, updateWorkspaceSchema, workspaceIdParamsSchema } from '../schemas/workspace.schemas.js';
 import { commandCenterService } from '../services/command-center.service.js';
 import { successResponse } from '../utils/api.js';
 
@@ -15,5 +15,19 @@ export const workspacesController = {
     const payload = createWorkspaceSchema.parse(request.body);
     const data = await commandCenterService.createWorkspace(payload);
     return response.status(201).json(successResponse('Workspace creado', data));
+  },
+
+  async update(request: Request, response: Response) {
+    const { workspaceId } = workspaceIdParamsSchema.parse(request.params);
+    const payload = updateWorkspaceSchema.parse(request.body);
+    const data = await commandCenterService.updateWorkspace(workspaceId, payload);
+    return response.json(successResponse('Workspace actualizado', data));
+  },
+
+  async createMembership(request: Request, response: Response) {
+    const { workspaceId } = workspaceIdParamsSchema.parse(request.params);
+    const payload = createWorkspaceMembershipSchema.parse(request.body);
+    const data = await commandCenterService.createWorkspaceMembership(workspaceId, payload);
+    return response.status(201).json(successResponse('Membresía creada', data));
   },
 };

@@ -259,6 +259,30 @@ export const commandCenterRepository = {
     );
     return result.rows;
   },
+  async updateWorkspace(workspaceId: string, payload: any) {
+    const result = await pool.query(
+      `UPDATE ai_workspaces SET name=$2, slug=$3, description=$4, status=$5 WHERE id=$1 RETURNING *`,
+      [workspaceId, payload.name, payload.slug, payload.description, payload.status],
+    );
+    return result.rows[0] ?? null;
+  },
+  async createWorkspaceMembership(payload: any) {
+    const result = await pool.query(
+      `WITH target_user AS (
+         INSERT INTO ai_users (display_name, email, status)
+         VALUES ($1,$2,'active')
+         ON CONFLICT (email) DO UPDATE SET display_name = EXCLUDED.display_name
+         RETURNING *
+       )
+       INSERT INTO ai_workspace_memberships (workspace_id, user_id, role_key)
+       SELECT $3, target_user.id, $4 FROM target_user
+       ON CONFLICT (workspace_id, user_id)
+       DO UPDATE SET role_key = EXCLUDED.role_key
+       RETURNING *`,
+      [payload.displayName, payload.email, payload.workspaceId, payload.roleKey],
+    );
+    return result.rows[0] ?? null;
+  },
   async createWorkspace(payload: any) {
     const result = await pool.query(
       `WITH created_workspace AS (
