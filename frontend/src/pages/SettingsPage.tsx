@@ -132,6 +132,8 @@ export function SettingsPage() {
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => void loadSettings()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando configuración..." />;
 
+  const policies = settings.filter((setting) => setting.setting_key.startsWith('politica.'));
+
   return (
     <PageShell title="Configuración" description="Parámetros operativos persistidos y ahora editables desde el centro de comando." action={<Button onClick={openCreate}>Crear clave</Button>}>
       {error ? <ActionFeedback tone="warning" message={error} /> : null}
@@ -144,6 +146,17 @@ export function SettingsPage() {
           { eyebrow: 'Categorías', title: `${new Set(settings.map((setting) => setting.category)).size} grupos`, description: 'Distribución funcional de la configuración disponible en la instancia.', tone: 'success' },
         ]}
       />
+
+      <SectionCard title="Políticas base de misión" subtitle="Estas claves gobiernan riesgo, aprobación y bloqueo preventivo dentro de Mission Control.">
+        <DataTable
+          columns={['Política', 'Valor', 'Lectura']}
+          rows={(policies.length > 0 ? policies : [{ id: 'sin-politicas', setting_key: 'Sin políticas configuradas', setting_value: 'Usando defaults internos', category: 'security', is_sensitive: false, description: 'Mission Control usa aprobación por riesgo alto y bloqueo preventivo de shell.' } as SystemSetting]).map((setting) => [
+            <span className="text-sm font-semibold text-white">{setting.setting_key}</span>,
+            <span className="text-sm text-zinc-300">{renderSettingValue(setting)}</span>,
+            <span className="text-sm text-zinc-400">{setting.description}</span>,
+          ])}
+        />
+      </SectionCard>
 
       <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.2fr)_22rem]">
         <SectionCard title="Registro de configuración" subtitle="Tabla principal con edición y protección de visibilidad.">

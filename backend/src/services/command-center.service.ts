@@ -173,6 +173,13 @@ function buildMissionPlan(prompt: string) {
   ];
 }
 
+function resolvePolicyValue(settings: Array<{ setting_key: string; setting_value: unknown }>, key: string, fallback: boolean) {
+  const matched = settings.find((setting) => setting.setting_key === key);
+  if (!matched) return fallback;
+  if (typeof matched.setting_value === 'boolean') return matched.setting_value;
+  return fallback;
+}
+
 function requireOffice(office: OfficeRecord | null) {
   if (!office) throw new AppError('Default office not found', 404);
   return office;
@@ -482,25 +489,32 @@ export const commandCenterService = {
   async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string }) {
     const riskLevel = detectRiskLevel(payload.prompt);
     const sensitiveActions = detectSensitiveActions(payload.prompt);
-    const agents = await commandCenterRepository.getAgents();
+    const [agents, settings] = await Promise.all([
+      commandCenterRepository.getAgents(),
+      commandCenterRepository.getSystemSettings(),
+    ]);
+    const requireApprovalHighRisk = resolvePolicyValue(settings, 'politica.aprobacion_riesgo_alto', true);
+    const blockShellCommands = resolvePolicyValue(settings, 'politica.bloquear_shell_sin_aprobacion', true);
     const assignedAgent = agents.find((agent) => agent.status === 'active') ?? null;
+    const bloqueaPorPolitica = blockShellCommands && sensitiveActions.includes('ejecutar comandos');
+    const requiresApproval = (['high', 'critical'].includes(riskLevel) && requireApprovalHighRisk) || sensitiveActions.length > 0;
     const created = await commandCenterRepository.createMission({
       title: payload.prompt.slice(0, 120),
       description: payload.prompt,
       objective: payload.prompt,
-      status: 'planned',
+      status: bloqueaPorPolitica ? 'blocked' : 'planned',
       priority: payload.priority,
       riskLevel,
       assignedAgentId: assignedAgent?.id ?? null,
       createdBy: payload.createdBy,
-      summary: 'Misión estructurada y pendiente de confirmación del operador.',
+      summary: bloqueaPorPolitica ? 'La misión quedó bloqueada por política de shell sin aprobación.' : 'Misión estructurada y pendiente de confirmación del operador.',
       estimatedSteps: 4,
-      requiresApproval: ['high', 'critical'].includes(riskLevel) || sensitiveActions.length > 0,
+      requiresApproval,
       sensitiveActions,
       requiredIntegrations: [],
-      requiredPermissions: sensitiveActions.length > 0 ? ['aprobación_humana'] : [],
+      requiredPermissions: requiresApproval ? ['aprobación_humana'] : [],
       plan: buildMissionPlan(payload.prompt),
-      metadata: { promptOriginal: payload.prompt, origen: 'mission_control' },
+      metadata: { promptOriginal: payload.prompt, origen: 'mission_control', decisionesPolitica: { requireApprovalHighRisk, blockShellCommands, bloqueaPorPolitica } },
     });
     await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_created', moduleName: 'missions', payloadSummary: { missionId: created.id, riskLevel }, resultStatus: 'success', severity: 'info' });
     return created;
