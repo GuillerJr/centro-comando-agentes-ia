@@ -64,6 +64,7 @@ export function DashboardPage() {
           { eyebrow: 'Aprobaciones', title: `${dashboard.metrics.pending_approvals} pendientes`, description: 'Controles humanos esperando decisión para permitir avanzar trabajo sensible.', tone: dashboard.metrics.pending_approvals > 0 ? 'warning' : 'default' },
           { eyebrow: 'Agentes', title: `${dashboard.metrics.active_agents} activos`, description: 'Capacidad disponible en la red de agentes para seguir absorbiendo trabajo.', tone: 'success' },
           { eyebrow: 'Integraciones', title: `${dashboard.metrics.connected_mcp_servers} conectadas`, description: 'Servicios y herramientas disponibles para ampliar la ejecución.', tone: 'default' },
+          { eyebrow: 'OpenClaw', title: String(dashboard.openClawStatus.connection?.valid ? 'Validado' : 'Revisar'), description: `Última comprobación ${dashboard.openClawStatus.checkedAt ? new Date(String(dashboard.openClawStatus.checkedAt)).toLocaleTimeString('es-ES') : 'sin dato'}.`, tone: dashboard.openClawStatus.connection?.valid ? 'success' : 'warning' },
         ]}
       />
 
@@ -89,6 +90,8 @@ export function DashboardPage() {
               ['Tareas en curso', dashboard.metrics.running_tasks, 'Carga de ejecución real actualmente corriendo debajo del centro de mando.'],
               ['Alertas críticas', dashboard.metrics.critical_alerts, 'Señales severas que exigen revisión antes de abrir nuevos frentes.'],
               ['Runtime OpenClaw', formatDisplayText(String(dashboard.openClawStatus.state ?? 'desconocido')), 'Estado más reciente del motor operativo conectado.'],
+              ['Conexión verificada', dashboard.openClawStatus.connection?.valid ? 'Sí' : 'No', 'Resultado de la validación operativa más reciente del conector.'],
+              ['Modo del runtime', String(dashboard.openClawStatus.mode ?? 'desconocido'), 'Ruta efectiva usada por Mission Control para hablar con OpenClaw.'],
             ]}
           />
         </SectionCard>
@@ -105,6 +108,18 @@ export function DashboardPage() {
               <span className="max-w-xs text-sm leading-6 text-zinc-300">{run.requested_action}</span>,
               run.duration_ms ? formatDuration(run.duration_ms) : 'En curso',
             ])}
+          />
+        </SectionCard>
+
+        <SectionCard title="Señales del runtime OpenClaw" subtitle="Lectura útil del puente Mission Control ↔ OpenClaw con contexto verificable y últimos registros sintéticos.">
+          <DataTable
+            columns={['Campo', 'Valor', 'Detalle']}
+            rows={[
+              ['Estado', formatDisplayText(String(dashboard.openClawStatus.state ?? 'desconocido')), 'Resumen ejecutivo del runtime conectado.'],
+              ['Validación', dashboard.openClawStatus.connection?.valid ? 'Correcta' : 'Fallida', 'Indica si la comprobación activa del conector respondió bien.'],
+              ['Última revisión', dashboard.openClawStatus.checkedAt ? new Date(String(dashboard.openClawStatus.checkedAt)).toLocaleString('es-ES') : 'Sin dato', 'Momento de la última consolidación del estado.'],
+              ['Registro reciente', String(dashboard.openClawStatus.recentLogs?.[0]?.message ?? 'Sin registros recientes'), 'Último mensaje visible del adaptador operativo.'],
+            ]}
           />
         </SectionCard>
 

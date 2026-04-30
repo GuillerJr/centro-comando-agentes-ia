@@ -20,7 +20,7 @@ export type DashboardData = {
   missions: Mission[];
   latestRuns: TaskRun[];
   alerts: AuditLog[];
-  openClawStatus: { mode: string; state: string; details?: unknown };
+  openClawStatus: { mode: string; state: string; details?: unknown; connection?: { valid?: boolean; mode?: string }; recentLogs?: Array<{ timestamp: string; level: string; message: string }>; checkedAt?: string };
   connectionStatus: string;
   mcpServers: McpServer[];
   settings: SystemSetting[];

@@ -778,7 +778,17 @@ export const commandCenterService = {
     };
   },
   async getOpenClawStatus() {
-    return adapter.getStatus();
+    const [status, connection, logs] = await Promise.all([
+      adapter.getStatus(),
+      adapter.validateConnection(),
+      adapter.getLogs(),
+    ]);
+    return {
+      ...status,
+      connection,
+      recentLogs: logs.slice(0, 5),
+      checkedAt: new Date().toISOString(),
+    };
   },
   async validateOpenClawConnection(mode?: 'mock' | 'api' | 'cli') {
     return createOpenClawAdapter(mode ?? env.openClawMode).validateConnection();
