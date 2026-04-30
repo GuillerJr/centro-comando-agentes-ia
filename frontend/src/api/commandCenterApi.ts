@@ -1,4 +1,4 @@
-import type { Agent, Approval, AuditLog, ConsoleSnapshot, DashboardData, GlobalSearchResult, McpServer, McpTool, Mission, OfficeLayout, OfficeState, Skill, SystemSetting, Task, TaskRun } from '../types/domain';
+import type { Agent, Approval, AuditLog, ConsoleSnapshot, DashboardData, GlobalSearchResult, McpServer, McpTool, Mission, OfficeLayout, OfficeState, Skill, SystemSetting, Task, TaskRun, WorkflowTemplate } from '../types/domain';
 import { apiRequest } from './client';
 
 export const commandCenterApi = {
@@ -12,6 +12,9 @@ export const commandCenterApi = {
   pauseMission: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}/pause`, { method: 'POST' }),
   resumeMission: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}/resume`, { method: 'POST' }),
   cancelMission: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}/cancel`, { method: 'POST' }),
+  getWorkflowTemplates: () => apiRequest<WorkflowTemplate[]>('/workflows'),
+  createWorkflowTemplate: (payload: { name: string; description: string; objective: string; defaultPriority: string; recommendedSandbox: boolean; steps: Array<{ title: string; description: string; sensitive: boolean }>; metadata?: Record<string, unknown> }) => apiRequest<WorkflowTemplate>('/workflows', { method: 'POST', body: JSON.stringify(payload) }),
+  launchWorkflowTemplate: (workflowId: string, payload: { createdBy: string; sandbox: boolean }) => apiRequest<Mission>(`/workflows/${workflowId}/launch`, { method: 'POST', body: JSON.stringify(payload) }),
   getHealth: () => apiRequest('/system/health'),
   getOpenClawStatus: () => apiRequest('/system/openclaw/status'),
   validateOpenClawConnection: (mode?: string) => apiRequest('/system/openclaw/validate-connection', { method: 'POST', body: JSON.stringify({ mode }) }),

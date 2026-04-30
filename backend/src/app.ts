@@ -13,6 +13,7 @@ import runsRoutes from './routes/runs.routes.js';
 import skillsRoutes from './routes/skills.routes.js';
 import systemRoutes from './routes/system.routes.js';
 import tasksRoutes from './routes/tasks.routes.js';
+import workflowsRoutes from './routes/workflows.routes.js';
 
 export const app = express();
 
@@ -30,5 +31,6 @@ app.use('/api/audit-logs', auditRoutes);
 app.use('/api/mcp', mcpRoutes);
 app.use('/api/missions', missionsRoutes);
 app.use('/api/offices', officesRoutes);
+app.use('/api/workflows', workflowsRoutes);
 
 app.use(errorHandler);

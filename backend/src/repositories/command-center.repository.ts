@@ -218,6 +218,22 @@ export const commandCenterRepository = {
     const result = await pool.query('SELECT * FROM ai_mcp_tools ORDER BY name ASC');
     return result.rows;
   },
+  async getWorkflowTemplates() {
+    const result = await pool.query('SELECT * FROM ai_workflow_templates ORDER BY created_at DESC');
+    return result.rows;
+  },
+  async createWorkflowTemplate(payload: any) {
+    const result = await pool.query(
+      `INSERT INTO ai_workflow_templates (name, description, objective, default_priority, recommended_sandbox, steps, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [payload.name, payload.description, payload.objective, payload.defaultPriority, payload.recommendedSandbox, JSON.stringify(payload.steps ?? []), JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0];
+  },
+  async getWorkflowTemplateById(workflowId: string) {
+    const result = await pool.query('SELECT * FROM ai_workflow_templates WHERE id = $1', [workflowId]);
+    return result.rows[0] ?? null;
+  },
   async getSystemSettings() {
     const result = await pool.query('SELECT * FROM ai_system_settings ORDER BY setting_key ASC');
     return result.rows;

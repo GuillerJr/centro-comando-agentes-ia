@@ -990,6 +990,24 @@ export const commandCenterService = {
   async listMcpTools() {
     return commandCenterRepository.getMcpTools();
   },
+  async listWorkflowTemplates() {
+    return commandCenterRepository.getWorkflowTemplates();
+  },
+  async createWorkflowTemplate(payload: any) {
+    const template = await commandCenterRepository.createWorkflowTemplate(payload);
+    await commandCenterRepository.createAuditLog({ actor: 'Guiller', action: 'workflow_template_created', moduleName: 'workflows', payloadSummary: { workflowId: template.id }, resultStatus: 'success', severity: 'info' });
+    return template;
+  },
+  async launchWorkflowTemplate(workflowId: string, payload: { createdBy: string; sandbox: boolean }) {
+    const template = await commandCenterRepository.getWorkflowTemplateById(workflowId);
+    if (!template) throw new AppError('Workflow template not found', 404);
+    return this.createMissionFromPrompt({
+      prompt: `${template.objective}\n\nPasos sugeridos:\n${(template.steps as Array<{ title: string; description: string }>).map((step, index) => `${index + 1}. ${step.title}: ${step.description}`).join('\n')}`,
+      createdBy: payload.createdBy,
+      priority: template.default_priority,
+      sandbox: payload.sandbox,
+    });
+  },
   async listSystemSettings() {
     const settings = await commandCenterRepository.getSystemSettings();
     for (const policy of defaultPolicySettings) {

@@ -40,6 +40,7 @@ export type GlobalSearchResult = { id: string; type: string; title: string; subt
 export type MissionPlanStep = { title: string; description: string; sensitive: boolean };
 export type MissionTraceEntry = { type: 'task' | 'run' | 'approval'; id: string; title: string; status: string; timestamp: string; detail: string };
 export type Mission = { id: string; title: string; description: string; objective: string; status: string; priority: string; risk_level: string; assigned_agent_id?: string | null; created_by: string; summary: string; estimated_steps: number; requires_approval: boolean; sensitive_actions: string[]; required_integrations: string[]; required_permissions: string[]; plan_json: MissionPlanStep[]; metadata?: Record<string, unknown>; started_at?: string | null; completed_at?: string | null; created_at: string; related_tasks?: Task[]; related_approvals?: Approval[]; related_runs?: TaskRun[]; trace?: MissionTraceEntry[]; };
+export type WorkflowTemplate = { id: string; name: string; description: string; objective: string; default_priority: string; recommended_sandbox: boolean; steps: MissionPlanStep[]; metadata?: Record<string, unknown>; created_at: string; };
 
 export type Office = { id: string; slug: string; name: string; description: string; gridColumns: number; gridRows: number; metadata?: Record<string, unknown>; };
 export type OfficeStation = { id: string; code: string; name: string; stationType: string; status: string; capacity: number; assignmentCount: number; availableCapacity: number; isOverCapacity: boolean; };

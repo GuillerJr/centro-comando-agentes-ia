@@ -170,6 +170,19 @@ CREATE TABLE IF NOT EXISTS ai_system_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS ai_workflow_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name VARCHAR(160) NOT NULL UNIQUE,
+  description TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  default_priority VARCHAR(20) NOT NULL CHECK (default_priority IN ('low', 'medium', 'high', 'critical')),
+  recommended_sandbox BOOLEAN NOT NULL DEFAULT TRUE,
+  steps JSONB NOT NULL DEFAULT '[]'::jsonb,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS ai_offices (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug VARCHAR(80) NOT NULL UNIQUE,
@@ -246,6 +259,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_audit_logs_severity ON ai_audit_logs(severity)
 CREATE INDEX IF NOT EXISTS idx_ai_mcp_servers_status ON ai_mcp_servers(status);
 CREATE INDEX IF NOT EXISTS idx_ai_mcp_tools_server_id ON ai_mcp_tools(server_id);
 CREATE INDEX IF NOT EXISTS idx_ai_system_settings_category ON ai_system_settings(category);
+CREATE INDEX IF NOT EXISTS idx_ai_workflow_templates_priority ON ai_workflow_templates(default_priority);
 CREATE INDEX IF NOT EXISTS idx_ai_offices_default ON ai_offices(is_default);
 CREATE INDEX IF NOT EXISTS idx_ai_office_zones_office_order ON ai_office_zones(office_id, display_order);
 CREATE INDEX IF NOT EXISTS idx_ai_office_stations_zone_status ON ai_office_stations(zone_id, status);
@@ -272,6 +286,8 @@ DROP TRIGGER IF EXISTS trg_ai_mcp_tools_updated_at ON ai_mcp_tools;
 CREATE TRIGGER trg_ai_mcp_tools_updated_at BEFORE UPDATE ON ai_mcp_tools FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_system_settings_updated_at ON ai_system_settings;
 CREATE TRIGGER trg_ai_system_settings_updated_at BEFORE UPDATE ON ai_system_settings FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_ai_workflow_templates_updated_at ON ai_workflow_templates;
+CREATE TRIGGER trg_ai_workflow_templates_updated_at BEFORE UPDATE ON ai_workflow_templates FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_offices_updated_at ON ai_offices;
 CREATE TRIGGER trg_ai_offices_updated_at BEFORE UPDATE ON ai_offices FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_office_zones_updated_at ON ai_office_zones;

@@ -39,6 +39,7 @@ const navGroups: NavGroup[] = [
       { to: '/', label: 'Panel general', icon: LayoutDashboard },
       { to: '/office-design', label: 'Diseño de oficina', icon: Building2 },
       { to: '/missions', label: 'Misiones', icon: FolderKanban },
+      { to: '/workflows', label: 'Workflows', icon: Workflow },
       { to: '/agents', label: 'Agentes', icon: Bot },
       { to: '/skills', label: 'Capacidades', icon: Sparkles },
     ],
