@@ -27,4 +27,5 @@ export const workflowIdParamsSchema = z.object({
 export const launchWorkflowSchema = z.object({
   createdBy: z.string().min(2).default('Guiller'),
   sandbox: z.boolean().default(true),
+  workspaceId: z.string().uuid().optional(),
 });

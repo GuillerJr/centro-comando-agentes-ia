@@ -1054,15 +1054,22 @@ export const commandCenterService = {
     await commandCenterRepository.createAuditLog({ actor: 'Guiller', action: 'workflow_template_created', moduleName: 'workflows', payloadSummary: { workflowId: template.id }, resultStatus: 'success', severity: 'info' });
     return template;
   },
-  async launchWorkflowTemplate(workflowId: string, payload: { createdBy: string; sandbox: boolean }) {
+  async launchWorkflowTemplate(workflowId: string, payload: { createdBy: string; sandbox: boolean; workspaceId?: string }) {
     const template = await commandCenterRepository.getWorkflowTemplateById(workflowId);
     if (!template) throw new AppError('Workflow template not found', 404);
+    if (payload.workspaceId) {
+      const membership = await commandCenterRepository.getWorkspaceMembershipByName(payload.workspaceId, payload.createdBy);
+      if (!canOperateWorkspace(membership?.role_key)) {
+        throw new AppError('El actor no tiene permisos operativos para lanzar este flujo dentro del espacio seleccionado.', 403);
+      }
+    }
     return this.createMissionFromPrompt({
       title: template.name,
       prompt: `${template.objective}\n\nPasos sugeridos:\n${(template.steps as Array<{ title: string; description: string }>).map((step, index) => `${index + 1}. ${step.title}: ${step.description}`).join('\n')}`,
       createdBy: payload.createdBy,
       priority: template.default_priority,
       sandbox: payload.sandbox,
+      workspaceId: payload.workspaceId,
       metadata: { workflowId: template.id, workflowName: template.name, origen: 'workflow_template' },
     });
   },

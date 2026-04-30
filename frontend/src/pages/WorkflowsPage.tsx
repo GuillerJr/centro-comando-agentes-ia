@@ -3,16 +3,18 @@ import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { Modal } from '../components/modal';
-import { ActionFeedback, ChipGroup, DataTable, ErrorState, FormField, LoadingState, PageShell, SectionCard, StatsGrid } from '../components/ui';
-import type { WorkflowTemplate } from '../types/domain';
+import { ActionFeedback, ChipGroup, DataTable, ErrorState, FormField, LoadingState, PageShell, SectionCard, StatsGrid, formatDisplayText } from '../components/ui';
+import type { WorkflowTemplate, Workspace } from '../types/domain';
 
 export function WorkflowsPage() {
   const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [launchWorkspaceId, setLaunchWorkspaceId] = useState('');
   const [form, setForm] = useState({ name: '', description: '', objective: '', defaultPriority: 'medium', recommendedSandbox: true, stepsText: '' });
 
   // Carga las plantillas reutilizables del constructor inicial de flujos.
@@ -20,7 +22,12 @@ export function WorkflowsPage() {
     try {
       setIsLoading(true);
       setError(null);
-      setTemplates(await commandCenterApi.getWorkflowTemplates());
+      const [templateData, workspaceData] = await Promise.all([
+        commandCenterApi.getWorkflowTemplates(),
+        commandCenterApi.getWorkspaces(),
+      ]);
+      setTemplates(templateData);
+      setWorkspaces(workspaceData);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'No se pudieron cargar los workflows.');
     } finally {
@@ -66,7 +73,7 @@ export function WorkflowsPage() {
     try {
       setError(null);
       setFeedback(null);
-      await commandCenterApi.launchWorkflowTemplate(workflowId, { createdBy: 'Guiller', sandbox });
+      await commandCenterApi.launchWorkflowTemplate(workflowId, { createdBy: 'Guiller', sandbox, workspaceId: launchWorkspaceId || undefined });
       setFeedback(`La plantilla se lanzó como misión en modo ${sandbox ? 'simulación segura' : 'ejecución real'}.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'No se pudo lanzar la plantilla.');
@@ -89,6 +96,17 @@ export function WorkflowsPage() {
           { eyebrow: 'Prioridad alta', title: `${templates.filter((template) => ['high', 'critical'].includes(template.default_priority)).length}`, description: 'Plantillas pensadas para trabajo más sensible o urgente.', tone: 'warning' },
         ]}
       />
+
+      <SectionCard title="Lanzamiento operativo" subtitle="Selecciona el espacio donde se ejecutará el flujo. Mission Control validará el rol operativo del actor actual.">
+        <div className="max-w-xl">
+          <FormField label="Espacio objetivo" helper={launchWorkspaceId ? `Rol detectado: ${formatDisplayText(workspaces.find((workspace) => workspace.id === launchWorkspaceId)?.memberships?.find((membership) => membership.display_name.toLowerCase() === 'guiller')?.role_key ?? 'sin rol')}.` : 'Si no eliges espacio, el flujo se lanzará como misión sin contexto organizativo específico.'}>
+            <select className="panel-input" value={launchWorkspaceId} onChange={(event) => setLaunchWorkspaceId(event.target.value)}>
+              <option value="">Sin espacio específico</option>
+              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
+            </select>
+          </FormField>
+        </div>
+      </SectionCard>
 
       <SectionCard title="Biblioteca de flujos" subtitle="Plantillas reutilizables para convertir procesos repetidos en misiones bien estructuradas.">
         <DataTable
