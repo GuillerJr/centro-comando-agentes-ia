@@ -64,6 +64,8 @@ export function ApprovalsPage() {
     return matchesSearch && matchesStatus;
   });
   const pendingCount = approvals.filter((approval) => approval.status === 'pending').length;
+  const criticalApprovals = approvals.filter((approval) => String(approval.payload_summary?.riskLevel ?? '') === 'critical').length;
+  const realModeApprovals = approvals.filter((approval) => approval.payload_summary?.sandbox === false).length;
   const latestApproval = filteredApprovals[0] ?? approvals[0];
 
   return (
@@ -83,6 +85,17 @@ export function ApprovalsPage() {
           { eyebrow: 'Gobernanza', title: 'Control humano activo', description: 'La operación mantiene una puerta manual antes de ejecutar acciones sensibles.', tone: 'success' },
         ]}
       />
+
+      <SectionCard title="Señales de seguridad" subtitle="Lectura rápida para saber qué tan expuesta está la operación antes de aprobar o ejecutar.">
+        <DataTable
+          columns={['Señal', 'Valor', 'Lectura']}
+          rows={[
+            ['Pendientes de riesgo crítico', criticalApprovals, 'Aprobaciones que merecen máxima cautela antes de desbloquear ejecución.'],
+            ['Modo real visible', realModeApprovals, 'Solicitudes que apuntan a ejecución real y no a sandbox.'],
+            ['Pendientes sin resolver', pendingCount, 'Cola actual que sigue esperando decisión del operador.'],
+          ]}
+        />
+      </SectionCard>
 
       <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1.2fr)_22rem]">
         <SectionCard title="Bandeja de aprobaciones" subtitle="Gestión de aprobar, rechazar y ejecutar desde tabla compacta.">
@@ -114,6 +127,7 @@ export function ApprovalsPage() {
               ['Estado de misión', latestApproval.mission_status ? <StatusBadge status={latestApproval.mission_status} /> : 'Sin misión'],
               ['Notas', <div className="text-sm leading-6 text-zinc-400">{latestApproval.execution_notes ?? 'Sin notas todavía'}</div>],
               ['Impacto', <div className="text-sm leading-6 text-zinc-300">Riesgo {formatDisplayText(String(latestApproval.payload_summary?.riskLevel ?? 'medium'))}, modo {latestApproval.payload_summary?.sandbox ? 'sandbox' : 'real'} y {Array.isArray(latestApproval.payload_summary?.sensitiveActions) ? latestApproval.payload_summary.sensitiveActions.length : 0} acciones sensibles detectadas.</div>],
+              ['Permisos requeridos', <div className="text-sm leading-6 text-zinc-300">{Array.isArray(latestApproval.payload_summary?.requiredPermissions) && latestApproval.payload_summary.requiredPermissions.length > 0 ? latestApproval.payload_summary.requiredPermissions.join(', ') : 'Sin permisos especiales declarados.'}</div>],
               ['Payload', <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">{formatValue(latestApproval.payload_summary)}</pre>],
             ]}
           /> : <EmptyState title="Sin aprobaciones recientes" description="Todavía no hay solicitudes para resumir en este panel lateral." />}
