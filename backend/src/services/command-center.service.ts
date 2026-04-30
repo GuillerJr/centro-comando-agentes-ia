@@ -718,7 +718,7 @@ export const commandCenterService = {
   async globalSearch(query: string) {
     const term = query.trim().toLowerCase();
     if (!term) return [];
-    const [agents, skills, tasks, runs, approvals, settings, servers] = await Promise.all([
+    const [agents, skills, tasks, runs, approvals, settings, servers, workflows, workspaces] = await Promise.all([
       commandCenterRepository.getAgents(),
       commandCenterRepository.getSkills(),
       commandCenterRepository.getTasks(),
@@ -726,6 +726,8 @@ export const commandCenterService = {
       commandCenterRepository.getApprovals(),
       commandCenterRepository.getSystemSettings(),
       commandCenterRepository.getMcpServers(),
+      commandCenterRepository.getWorkflowTemplates(),
+      commandCenterRepository.getWorkspaces(),
     ]);
 
     const results = [
@@ -736,6 +738,8 @@ export const commandCenterService = {
       ...approvals.filter((item: any) => `${item.approval_type} ${item.reason} ${item.requested_by}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'approval', title: item.approval_type, subtitle: item.reason, href: '/approvals' })),
       ...settings.filter((item: any) => `${item.setting_key} ${item.description} ${item.category}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'setting', title: item.setting_key, subtitle: item.description, href: '/settings' })),
       ...servers.filter((item: any) => `${item.name} ${item.description} ${item.transport_type}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'mcp', title: item.name, subtitle: item.description, href: '/mcp' })),
+      ...workflows.filter((item: any) => `${item.name} ${item.description} ${item.objective}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'workflow', title: item.name, subtitle: item.description, href: '/workflows' })),
+      ...workspaces.filter((item: any) => `${item.name} ${item.slug} ${item.description}`.toLowerCase().includes(term)).slice(0, 5).map((item: any) => ({ id: item.id, type: 'workspace', title: item.name, subtitle: item.description, href: '/workspaces' })),
     ];
     return results.slice(0, 20);
   },

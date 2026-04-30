@@ -43,9 +43,11 @@ export function DashboardPage() {
         </div>
       }
     >
-      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         <Button variant="secondary" onClick={() => navigate('/missions')}>Ir a misiones</Button>
         <Button variant="secondary" onClick={() => navigate('/approvals')}>Revisar aprobaciones</Button>
+        <Button variant="secondary" onClick={() => navigate('/workflows')}>Abrir flujos</Button>
+        <Button variant="secondary" onClick={() => navigate('/workspaces')}>Abrir espacios</Button>
         <Button variant="secondary" onClick={() => navigate('/runs')}>Ver ejecuciones</Button>
         <Button variant="secondary" onClick={() => navigate('/office-design')}>Abrir oficina</Button>
       </div>
