@@ -129,6 +129,11 @@ export const commandCenterRepository = {
     const result = await pool.query('SELECT * FROM ai_task_runs ORDER BY executed_at DESC');
     return result.rows;
   },
+  async getRunsByTaskIds(taskIds: string[]) {
+    if (taskIds.length === 0) return [];
+    const result = await pool.query('SELECT * FROM ai_task_runs WHERE task_id = ANY($1::uuid[]) ORDER BY executed_at DESC', [taskIds]);
+    return result.rows;
+  },
   async getRunById(runId: string) {
     const result = await pool.query('SELECT * FROM ai_task_runs WHERE id = $1', [runId]);
     return result.rows[0] ?? null;

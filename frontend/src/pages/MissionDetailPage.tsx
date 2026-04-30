@@ -177,6 +177,19 @@ export function MissionDetailPage() {
           />
         </SectionCard>
       </div>
+
+      <SectionCard title="Trazabilidad completa" subtitle="Sigue el hilo misión → tarea → ejecución → aprobación sin perder contexto operativo.">
+        <DataTable
+          columns={['Tipo', 'Identificador', 'Estado', 'Momento', 'Detalle']}
+          rows={(mission.trace ?? []).map((entry) => [
+            <span className="text-sm font-semibold text-white">{entry.type === 'task' ? 'Tarea' : entry.type === 'run' ? 'Ejecución' : 'Aprobación'}</span>,
+            <span className="text-sm text-zinc-300">{entry.title}</span>,
+            <StatusBadge status={entry.status} />,
+            <span className="text-sm text-zinc-300">{new Date(entry.timestamp).toLocaleString('es-ES')}</span>,
+            <span className="text-sm text-zinc-300">{entry.detail}</span>,
+          ])}
+        />
+      </SectionCard>
     </PageShell>
   );
 }

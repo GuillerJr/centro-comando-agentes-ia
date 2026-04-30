@@ -482,8 +482,20 @@ export const commandCenterService = {
     if (!mission) throw new AppError('Mission not found', 404);
     const tasks = await commandCenterRepository.getTasks();
     const missionTasks = tasks.filter((task) => String(task.metadata?.missionId ?? '') === missionId);
-    const approvals = await commandCenterRepository.getApprovalsByTaskIds(missionTasks.map((task) => task.id));
-    return { ...mission, related_tasks: missionTasks, related_approvals: approvals };
+    const [approvals, runs] = await Promise.all([
+      commandCenterRepository.getApprovalsByTaskIds(missionTasks.map((task) => task.id)),
+      commandCenterRepository.getRunsByTaskIds(missionTasks.map((task) => task.id)),
+    ]);
+    const trace = missionTasks.flatMap((task) => {
+      const taskRuns = runs.filter((run) => run.task_id === task.id);
+      const taskApprovals = approvals.filter((approval) => approval.task_id === task.id);
+      return [
+        { type: 'task', id: task.id, title: task.title, status: task.status, timestamp: task.created_at, detail: task.description },
+        ...taskRuns.map((run) => ({ type: 'run', id: run.id, title: run.trace_id, status: run.status, timestamp: run.executed_at, detail: run.requested_action })),
+        ...taskApprovals.map((approval) => ({ type: 'approval', id: approval.id, title: approval.approval_type, status: approval.status, timestamp: approval.created_at, detail: approval.reason })),
+      ];
+    }).sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime());
+    return { ...mission, related_tasks: missionTasks, related_approvals: approvals, related_runs: runs, trace };
   },
   // Crea una misión inicial a partir de un prompt de alto nivel.
   async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean }) {
