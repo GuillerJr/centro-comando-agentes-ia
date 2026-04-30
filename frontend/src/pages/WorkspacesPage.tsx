@@ -53,22 +53,22 @@ export function WorkspacesPage() {
   if (isLoading) return <LoadingState label="Cargando workspaces..." />;
 
   return (
-    <PageShell title="Workspaces" description="Base inicial para separar contexto, ownership y visibilidad dentro de Mission Control." action={<Button onClick={() => setModalOpen(true)}>Crear workspace</Button>}>
+    <PageShell title="Espacios" description="Base inicial para separar contexto, propiedad y visibilidad dentro de Mission Control." action={<Button onClick={() => setModalOpen(true)}>Crear espacio</Button>}>
       {error ? <ActionFeedback tone="warning" message={error} /> : null}
       {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
 
       <StatsGrid
         className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
         items={[
-          { eyebrow: 'Workspaces', title: `${workspaces.length} activos`, description: 'Superficies organizativas visibles en esta base inicial.', tone: 'default' },
-          { eyebrow: 'Owners', title: `${workspaces.reduce((sum, workspace) => sum + Number(workspace.owner_count), 0)}`, description: 'Responsables principales registrados por workspace.', tone: 'success' },
+          { eyebrow: 'Espacios', title: `${workspaces.length} activos`, description: 'Superficies organizativas visibles en esta base inicial.', tone: 'default' },
+          { eyebrow: 'Responsables', title: `${workspaces.reduce((sum, workspace) => sum + Number(workspace.owner_count), 0)}`, description: 'Responsables principales registrados por espacio.', tone: 'success' },
           { eyebrow: 'Miembros', title: `${workspaces.reduce((sum, workspace) => sum + Number(workspace.member_count), 0)}`, description: 'Capacidad humana ya asignada a los espacios creados.', tone: 'default' },
         ]}
       />
 
-      <SectionCard title="Inventario de workspaces" subtitle="Primer paso para evolucionar hacia aislamiento multi-contexto, roles y ownership real.">
+      <SectionCard title="Inventario de espacios" subtitle="Primer paso para evolucionar hacia aislamiento multi-contexto, roles y propiedad real.">
         <DataTable
-          columns={['Workspace', 'Estado', 'Slug', 'Miembros', 'Owners']}
+          columns={['Espacio', 'Estado', 'Slug', 'Miembros', 'Responsables']}
           rows={workspaces.map((workspace) => [
             <div className="max-w-md"><p className="text-sm font-semibold text-white">{workspace.name}</p><p className="mt-1 text-xs text-zinc-500">{workspace.description}</p></div>,
             <StatusBadge status={workspace.status} />,
@@ -79,14 +79,14 @@ export function WorkspacesPage() {
         />
       </SectionCard>
 
-      <Modal open={modalOpen} onOpenChange={setModalOpen} title="Crear workspace" description="Define un espacio inicial con su owner principal.">
+      <Modal open={modalOpen} onOpenChange={setModalOpen} title="Crear espacio" description="Define un espacio inicial con su responsable principal.">
         <form className="space-y-4" onSubmit={handleCreate}>
           <FormField label="Nombre"><Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></FormField>
           <FormField label="Slug"><Input value={form.slug} onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value.toLowerCase() }))} /></FormField>
           <FormField label="Descripción"><textarea className="panel-input min-h-[120px]" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></FormField>
-          <FormField label="Owner inicial"><Input value={form.ownerName} onChange={(event) => setForm((current) => ({ ...current, ownerName: event.target.value }))} /></FormField>
-          <FormField label="Email del owner"><Input type="email" value={form.ownerEmail} onChange={(event) => setForm((current) => ({ ...current, ownerEmail: event.target.value }))} /></FormField>
-          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Crear workspace'}</Button>
+          <FormField label="Responsable inicial"><Input value={form.ownerName} onChange={(event) => setForm((current) => ({ ...current, ownerName: event.target.value }))} /></FormField>
+          <FormField label="Email del responsable"><Input type="email" value={form.ownerEmail} onChange={(event) => setForm((current) => ({ ...current, ownerEmail: event.target.value }))} /></FormField>
+          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Crear espacio'}</Button>
         </form>
       </Modal>
     </PageShell>

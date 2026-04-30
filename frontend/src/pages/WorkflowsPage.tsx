@@ -67,7 +67,7 @@ export function WorkflowsPage() {
       setError(null);
       setFeedback(null);
       await commandCenterApi.launchWorkflowTemplate(workflowId, { createdBy: 'Guiller', sandbox });
-      setFeedback(`La plantilla se lanzó como misión en modo ${sandbox ? 'sandbox' : 'real'}.`);
+      setFeedback(`La plantilla se lanzó como misión en modo ${sandbox ? 'simulación segura' : 'ejecución real'}.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'No se pudo lanzar la plantilla.');
     }
@@ -77,7 +77,7 @@ export function WorkflowsPage() {
   if (isLoading) return <LoadingState label="Cargando workflows..." />;
 
   return (
-    <PageShell title="Workflows" description="Constructor inicial de plantillas reutilizables para lanzar misiones con estructura consistente." action={<Button onClick={() => setModalOpen(true)}>Crear workflow</Button>}>
+    <PageShell title="Flujos" description="Constructor inicial de plantillas reutilizables para lanzar misiones con estructura consistente." action={<Button onClick={() => setModalOpen(true)}>Crear flujo</Button>}>
       {error ? <ActionFeedback tone="warning" message={error} /> : null}
       {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
 
@@ -85,33 +85,33 @@ export function WorkflowsPage() {
         className="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
         items={[
           { eyebrow: 'Plantillas', title: `${templates.length} disponibles`, description: 'Inventario actual de secuencias reutilizables.', tone: 'default' },
-          { eyebrow: 'Sandbox recomendado', title: `${templates.filter((template) => template.recommended_sandbox).length}`, description: 'Plantillas que nacen orientadas a simulación segura.', tone: 'success' },
+          { eyebrow: 'Simulación segura recomendada', title: `${templates.filter((template) => template.recommended_sandbox).length}`, description: 'Plantillas que nacen orientadas a simulación segura.', tone: 'success' },
           { eyebrow: 'Prioridad alta', title: `${templates.filter((template) => ['high', 'critical'].includes(template.default_priority)).length}`, description: 'Plantillas pensadas para trabajo más sensible o urgente.', tone: 'warning' },
         ]}
       />
 
-      <SectionCard title="Biblioteca de workflows" subtitle="Plantillas reutilizables para convertir procesos repetidos en misiones bien estructuradas.">
+      <SectionCard title="Biblioteca de flujos" subtitle="Plantillas reutilizables para convertir procesos repetidos en misiones bien estructuradas.">
         <DataTable
           columns={['Nombre', 'Prioridad', 'Modo recomendado', 'Pasos', 'Acciones']}
           rows={templates.map((template) => [
             <div className="max-w-md"><p className="text-sm font-semibold text-white">{template.name}</p><p className="mt-1 text-xs text-zinc-500">{template.description}</p></div>,
             <span className="text-sm text-zinc-300">{template.default_priority}</span>,
-            <span className="text-sm text-zinc-300">{template.recommended_sandbox ? 'Sandbox' : 'Real'}</span>,
+            <span className="text-sm text-zinc-300">{template.recommended_sandbox ? 'Simulación segura' : 'Ejecución real'}</span>,
             <ChipGroup items={template.steps.map((step) => step.title)} emptyLabel="Sin pasos" />,
             <div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => void handleLaunch(template.id, template.recommended_sandbox)}>Lanzar</Button></div>,
           ])}
         />
       </SectionCard>
 
-      <Modal open={modalOpen} onOpenChange={setModalOpen} title="Crear workflow" description="Define una plantilla básica para relanzar misiones de forma consistente.">
+      <Modal open={modalOpen} onOpenChange={setModalOpen} title="Crear flujo" description="Define una plantilla básica para relanzar misiones de forma consistente.">
         <form className="space-y-4" onSubmit={handleCreate}>
           <FormField label="Nombre"><Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></FormField>
           <FormField label="Descripción"><Input value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></FormField>
           <FormField label="Objetivo"><textarea className="panel-input min-h-[120px]" value={form.objective} onChange={(event) => setForm((current) => ({ ...current, objective: event.target.value }))} /></FormField>
           <FormField label="Prioridad por defecto"><select className="panel-input" value={form.defaultPriority} onChange={(event) => setForm((current) => ({ ...current, defaultPriority: event.target.value }))}><option value="low">baja</option><option value="medium">media</option><option value="high">alta</option><option value="critical">crítica</option></select></FormField>
-          <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-200"><input type="checkbox" checked={form.recommendedSandbox} onChange={(event) => setForm((current) => ({ ...current, recommendedSandbox: event.target.checked }))} />Recomendar sandbox</label>
+          <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-200"><input type="checkbox" checked={form.recommendedSandbox} onChange={(event) => setForm((current) => ({ ...current, recommendedSandbox: event.target.checked }))} />Recomendar simulación segura</label>
           <FormField label="Pasos" helper="Escribe un paso por línea para la plantilla inicial."><textarea className="panel-input min-h-[140px]" value={form.stepsText} onChange={(event) => setForm((current) => ({ ...current, stepsText: event.target.value }))} /></FormField>
-          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Crear workflow'}</Button>
+          <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : 'Crear flujo'}</Button>
         </form>
       </Modal>
     </PageShell>

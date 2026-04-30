@@ -43,7 +43,7 @@ export function MissionsPage() {
       setError(null);
       setFeedback(null);
       await commandCenterApi.createMission({ prompt, createdBy: 'Guiller', priority, sandbox });
-      setFeedback(`La misión se creó en modo ${sandbox ? 'sandbox' : 'ejecución real'} y quedó lista para revisión.`);
+      setFeedback(`La misión se creó en modo ${sandbox ? 'simulación segura' : 'ejecución real'} y quedó lista para revisión.`);
       setPrompt('');
       setPriority('medium');
       setSandbox(true);
@@ -114,7 +114,7 @@ export function MissionsPage() {
             <div className="max-w-md"><p className="text-sm font-semibold text-white">{mission.title}</p><p className="mt-1 text-xs text-zinc-500">{mission.summary}</p></div>,
             <StatusBadge status={mission.status} />,
             <StatusBadge status={mission.risk_level} />,
-            <span className="text-sm text-zinc-300">{(mission.metadata as Record<string, unknown> | undefined)?.sandbox ? 'Sandbox' : 'Real'}</span>,
+            <span className="text-sm text-zinc-300">{(mission.metadata as Record<string, unknown> | undefined)?.sandbox ? 'Simulación segura' : 'Ejecución real'}</span>,
             <ChipGroup items={mission.sensitive_actions} emptyLabel="Sin acciones sensibles" />,
             <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link>{mission.status === 'planned' ? <Button size="sm" onClick={() => void handleStartMission(mission.id)}>Iniciar misión</Button> : null}{mission.status === 'running' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'pause')}>Pausar</Button> : null}{mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'resume')}>Reanudar</Button> : null}{mission.status !== 'completed' && mission.status !== 'cancelled' && mission.status !== 'failed' ? <Button size="sm" variant="ghost" onClick={() => void handleMissionState(mission.id, 'cancel')}>Cancelar</Button> : null}</div>,
           ])}
@@ -145,7 +145,7 @@ export function MissionsPage() {
               <option value="critical">crítica</option>
             </select>
           </FormField>
-          <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-200"><input type="checkbox" checked={sandbox} onChange={(event) => setSandbox(event.target.checked)} />Crear en modo sandbox</label>
+          <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-200"><input type="checkbox" checked={sandbox} onChange={(event) => setSandbox(event.target.checked)} />Crear en modo simulación segura</label>
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={isSubmitting || prompt.trim().length < 12}>{isSubmitting ? 'Creando...' : 'Crear misión'}</Button>
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancelar</Button>

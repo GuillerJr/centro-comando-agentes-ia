@@ -91,7 +91,7 @@ export function ApprovalsPage() {
           columns={['Señal', 'Valor', 'Lectura']}
           rows={[
             ['Pendientes de riesgo crítico', criticalApprovals, 'Aprobaciones que merecen máxima cautela antes de desbloquear ejecución.'],
-            ['Modo real visible', realModeApprovals, 'Solicitudes que apuntan a ejecución real y no a sandbox.'],
+            ['Modo real visible', realModeApprovals, 'Solicitudes que apuntan a ejecución real y no a simulación segura.'],
             ['Pendientes sin resolver', pendingCount, 'Cola actual que sigue esperando decisión del operador.'],
           ]}
         />
@@ -110,7 +110,7 @@ export function ApprovalsPage() {
               <div><div className="text-sm text-zinc-300">{approval.mission_title ?? 'Sin misión enlazada'}</div><div className="mt-1 text-xs text-zinc-500">{approval.task_title ?? approval.requested_by}</div></div>,
               <StatusBadge status={approval.status} />,
               <div className="text-sm leading-6 text-zinc-400">{approval.reason}</div>,
-              <div className="max-w-[16rem] text-xs leading-6 text-zinc-400"><p>Riesgo: {formatDisplayText(String(approval.payload_summary?.riskLevel ?? 'medium'))}</p><p>Modo: {approval.payload_summary?.sandbox ? 'sandbox' : 'real'}</p><p>Acciones: {Array.isArray(approval.payload_summary?.sensitiveActions) ? approval.payload_summary.sensitiveActions.length : 0}</p></div>,
+              <div className="max-w-[16rem] text-xs leading-6 text-zinc-400"><p>Riesgo: {formatDisplayText(String(approval.payload_summary?.riskLevel ?? 'medium'))}</p><p>Modo: {approval.payload_summary?.sandbox ? 'simulación segura' : 'ejecución real'}</p><p>Acciones: {Array.isArray(approval.payload_summary?.sensitiveActions) ? approval.payload_summary.sensitiveActions.length : 0}</p></div>,
               approval.status === 'pending' ? <div className="flex flex-wrap gap-2"><Button size="sm" variant="success" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'approve')}>Aprobar</Button><Button size="sm" variant="danger" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'reject')}>Rechazar</Button></div> : approval.status === 'approved' ? <Button size="sm" variant="secondary" disabled={processingId === approval.id} onClick={() => void handleDecision(approval, 'execute')}>Ejecutar</Button> : <span className="text-xs uppercase tracking-[0.16em] text-zinc-500">Cerrada</span>,
             ])}
           />
@@ -126,7 +126,7 @@ export function ApprovalsPage() {
               ['Estado', <StatusBadge status={latestApproval.status} />],
               ['Estado de misión', latestApproval.mission_status ? <StatusBadge status={latestApproval.mission_status} /> : 'Sin misión'],
               ['Notas', <div className="text-sm leading-6 text-zinc-400">{latestApproval.execution_notes ?? 'Sin notas todavía'}</div>],
-              ['Impacto', <div className="text-sm leading-6 text-zinc-300">Riesgo {formatDisplayText(String(latestApproval.payload_summary?.riskLevel ?? 'medium'))}, modo {latestApproval.payload_summary?.sandbox ? 'sandbox' : 'real'} y {Array.isArray(latestApproval.payload_summary?.sensitiveActions) ? latestApproval.payload_summary.sensitiveActions.length : 0} acciones sensibles detectadas.</div>],
+              ['Impacto', <div className="text-sm leading-6 text-zinc-300">Riesgo {formatDisplayText(String(latestApproval.payload_summary?.riskLevel ?? 'medium'))}, modo {latestApproval.payload_summary?.sandbox ? 'simulación segura' : 'ejecución real'} y {Array.isArray(latestApproval.payload_summary?.sensitiveActions) ? latestApproval.payload_summary.sensitiveActions.length : 0} acciones sensibles detectadas.</div>],
               ['Permisos requeridos', <div className="text-sm leading-6 text-zinc-300">{Array.isArray(latestApproval.payload_summary?.requiredPermissions) && latestApproval.payload_summary.requiredPermissions.length > 0 ? latestApproval.payload_summary.requiredPermissions.join(', ') : 'Sin permisos especiales declarados.'}</div>],
               ['Payload', <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">{formatValue(latestApproval.payload_summary)}</pre>],
             ]}
