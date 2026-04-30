@@ -640,6 +640,37 @@ export const commandCenterService = {
     await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_resumed', moduleName: 'missions', payloadSummary: { missionId, nextStatus }, resultStatus: 'success', severity: pendingApproval || blockedByPolicy ? 'warning' : 'info' });
     return updatedMission;
   },
+  // Cancela una misión y propaga esa decisión a las tareas vivas relacionadas.
+  async cancelMission(missionId: string) {
+    const mission = await this.getMissionById(missionId) as MissionRecord & { related_tasks?: TaskRecord[] };
+    const updatedMission = await commandCenterRepository.updateMission(missionId, {
+      title: mission.title,
+      description: mission.description,
+      objective: mission.objective,
+      status: 'cancelled',
+      priority: mission.priority,
+      riskLevel: mission.risk_level,
+      assignedAgentId: mission.assigned_agent_id,
+      createdBy: mission.created_by,
+      summary: mission.summary,
+      estimatedSteps: mission.estimated_steps,
+      requiresApproval: mission.requires_approval,
+      sensitiveActions: mission.sensitive_actions,
+      requiredIntegrations: mission.required_integrations,
+      requiredPermissions: mission.required_permissions,
+      plan: mission.plan_json,
+      metadata: mission.metadata,
+      startedAt: mission.started_at,
+      completedAt: new Date().toISOString(),
+    });
+    for (const task of mission.related_tasks ?? []) {
+      if (!['completed', 'failed', 'cancelled'].includes(task.status)) {
+        await commandCenterRepository.cancelTask(task.id);
+      }
+    }
+    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_cancelled', moduleName: 'missions', payloadSummary: { missionId }, resultStatus: 'warning', severity: 'warning' });
+    return updatedMission;
+  },
   async globalSearch(query: string) {
     const term = query.trim().toLowerCase();
     if (!term) return [];

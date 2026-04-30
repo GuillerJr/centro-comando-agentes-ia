@@ -52,4 +52,11 @@ export const missionsController = {
     const data = await commandCenterService.resumeMission(missionId);
     return response.json(successResponse('Misión reanudada', data));
   },
+
+  // Cancela la misión desde la capa de mando y detiene su avance superior.
+  async cancel(request: Request, response: Response) {
+    const { missionId } = missionIdParamsSchema.parse(request.params);
+    const data = await commandCenterService.cancelMission(missionId);
+    return response.json(successResponse('Misión cancelada', data));
+  },
 };

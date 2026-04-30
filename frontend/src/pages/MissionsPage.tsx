@@ -69,16 +69,19 @@ export function MissionsPage() {
     }
   };
 
-  const handleMissionState = async (missionId: string, action: 'pause' | 'resume') => {
+  const handleMissionState = async (missionId: string, action: 'pause' | 'resume' | 'cancel') => {
     try {
       setError(null);
       setFeedback(null);
       if (action === 'pause') {
         await commandCenterApi.pauseMission(missionId);
         setFeedback('La misión quedó pausada desde el centro de mando.');
-      } else {
+      } else if (action === 'resume') {
         await commandCenterApi.resumeMission(missionId);
         setFeedback('La misión se reanudó según su estado de gobernanza.');
+      } else {
+        await commandCenterApi.cancelMission(missionId);
+        setFeedback('La misión quedó cancelada y su trabajo relacionado se cerró.');
       }
       await loadMissions();
     } catch (reason) {
@@ -113,7 +116,7 @@ export function MissionsPage() {
             <StatusBadge status={mission.risk_level} />,
             <span className="text-sm text-zinc-300">{(mission.metadata as Record<string, unknown> | undefined)?.sandbox ? 'Sandbox' : 'Real'}</span>,
             <ChipGroup items={mission.sensitive_actions} emptyLabel="Sin acciones sensibles" />,
-            <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link>{mission.status === 'planned' ? <Button size="sm" onClick={() => void handleStartMission(mission.id)}>Iniciar misión</Button> : null}{mission.status === 'running' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'pause')}>Pausar</Button> : null}{mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'resume')}>Reanudar</Button> : null}</div>,
+            <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link>{mission.status === 'planned' ? <Button size="sm" onClick={() => void handleStartMission(mission.id)}>Iniciar misión</Button> : null}{mission.status === 'running' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'pause')}>Pausar</Button> : null}{mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'resume')}>Reanudar</Button> : null}{mission.status !== 'completed' && mission.status !== 'cancelled' && mission.status !== 'failed' ? <Button size="sm" variant="ghost" onClick={() => void handleMissionState(mission.id, 'cancel')}>Cancelar</Button> : null}</div>,
           ])}
         />
       </SectionCard>

@@ -11,6 +11,7 @@ export const commandCenterApi = {
   startMission: (missionId: string) => apiRequest<{ mission: Mission; task: Task; requiresApproval: boolean }>(`/missions/${missionId}/start`, { method: 'POST' }),
   pauseMission: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}/pause`, { method: 'POST' }),
   resumeMission: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}/resume`, { method: 'POST' }),
+  cancelMission: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}/cancel`, { method: 'POST' }),
   getHealth: () => apiRequest('/system/health'),
   getOpenClawStatus: () => apiRequest('/system/openclaw/status'),
   validateOpenClawConnection: (mode?: string) => apiRequest('/system/openclaw/validate-connection', { method: 'POST', body: JSON.stringify({ mode }) }),

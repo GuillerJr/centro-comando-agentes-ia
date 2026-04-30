@@ -72,7 +72,7 @@ export function MissionDetailPage() {
     }
   };
 
-  const handleMissionState = async (action: 'pause' | 'resume') => {
+  const handleMissionState = async (action: 'pause' | 'resume' | 'cancel') => {
     if (!missionId) return;
     try {
       setIsSaving(true);
@@ -81,9 +81,12 @@ export function MissionDetailPage() {
       if (action === 'pause') {
         await commandCenterApi.pauseMission(missionId);
         setFeedback('La misión quedó pausada desde este detalle.');
-      } else {
+      } else if (action === 'resume') {
         await commandCenterApi.resumeMission(missionId);
         setFeedback('La misión se reanudó según sus controles vigentes.');
+      } else {
+        await commandCenterApi.cancelMission(missionId);
+        setFeedback('La misión quedó cancelada junto con su trabajo activo relacionado.');
       }
       await loadMission();
     } catch (reason) {
@@ -116,6 +119,7 @@ export function MissionDetailPage() {
               <Button onClick={() => void handleSave()} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Guardar planificación'}</Button>
               {mission.status === 'running' ? <Button variant="secondary" onClick={() => void handleMissionState('pause')} disabled={isSaving}>Pausar misión</Button> : null}
               {mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button variant="secondary" onClick={() => void handleMissionState('resume')} disabled={isSaving}>Reanudar misión</Button> : null}
+              {mission.status !== 'completed' && mission.status !== 'cancelled' && mission.status !== 'failed' ? <Button variant="ghost" onClick={() => void handleMissionState('cancel')} disabled={isSaving}>Cancelar misión</Button> : null}
               <Button variant="secondary" onClick={() => navigate('/missions')}>Volver a misiones</Button>
             </div>
           </div>

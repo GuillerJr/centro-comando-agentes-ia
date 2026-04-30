@@ -13,5 +13,6 @@ router.put('/:missionId', asyncHandler(missionsController.update));
 router.post('/:missionId/start', asyncHandler(missionsController.start));
 router.post('/:missionId/pause', asyncHandler(missionsController.pause));
 router.post('/:missionId/resume', asyncHandler(missionsController.resume));
+router.post('/:missionId/cancel', asyncHandler(missionsController.cancel));
 
 export default router;
