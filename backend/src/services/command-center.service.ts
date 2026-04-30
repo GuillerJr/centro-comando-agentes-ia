@@ -522,7 +522,7 @@ export const commandCenterService = {
     return { ...mission, related_tasks: missionTasks, related_approvals: approvals, related_runs: runs, trace };
   },
   // Crea una misión inicial a partir de un prompt de alto nivel.
-  async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean }) {
+  async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean; title?: string; metadata?: Record<string, unknown> }) {
     const riskLevel = detectRiskLevel(payload.prompt);
     const sensitiveActions = detectSensitiveActions(payload.prompt);
     const [agents, settings] = await Promise.all([
@@ -535,7 +535,7 @@ export const commandCenterService = {
     const bloqueaPorPolitica = blockShellCommands && sensitiveActions.includes('ejecutar comandos');
     const requiresApproval = (['high', 'critical'].includes(riskLevel) && requireApprovalHighRisk) || sensitiveActions.length > 0;
     const created = await commandCenterRepository.createMission({
-      title: payload.prompt.slice(0, 120),
+      title: payload.title?.trim() ? payload.title.trim().slice(0, 120) : payload.prompt.slice(0, 120),
       description: payload.prompt,
       objective: payload.prompt,
       status: bloqueaPorPolitica ? 'blocked' : 'planned',
@@ -550,7 +550,7 @@ export const commandCenterService = {
       requiredIntegrations: [],
       requiredPermissions: requiresApproval ? ['aprobación_humana'] : [],
       plan: buildMissionPlan(payload.prompt),
-      metadata: { promptOriginal: payload.prompt, origen: 'mission_control', sandbox: payload.sandbox, decisionesPolitica: { requireApprovalHighRisk, blockShellCommands, bloqueaPorPolitica } },
+      metadata: { promptOriginal: payload.prompt, origen: 'mission_control', sandbox: payload.sandbox, decisionesPolitica: { requireApprovalHighRisk, blockShellCommands, bloqueaPorPolitica }, ...(payload.metadata ?? {}) },
     });
     await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_created', moduleName: 'missions', payloadSummary: { missionId: created.id, riskLevel }, resultStatus: 'success', severity: 'info' });
     return created;
@@ -596,7 +596,7 @@ export const commandCenterService = {
       resultSummary: null,
       logs: null,
       createdBy: mission.created_by,
-      metadata: { missionId: mission.id, requestedAction: mission.objective, sandbox: Boolean((mission.metadata as Record<string, unknown>)?.sandbox) },
+      metadata: { missionId: mission.id, requestedAction: mission.objective, sandbox: Boolean((mission.metadata as Record<string, unknown>)?.sandbox), workflowId: (mission.metadata as Record<string, unknown>)?.workflowId ?? null, workspaceId: (mission.metadata as Record<string, unknown>)?.workspaceId ?? null },
     });
     if (mission.requires_approval) {
       await commandCenterRepository.createApproval({
@@ -613,6 +613,9 @@ export const commandCenterService = {
           requiredPermissions: mission.required_permissions,
           objective: mission.objective,
           sandbox: Boolean((mission.metadata as Record<string, unknown>)?.sandbox),
+          workflowId: (mission.metadata as Record<string, unknown>)?.workflowId ?? null,
+          workflowName: (mission.metadata as Record<string, unknown>)?.workflowName ?? null,
+          workspaceId: (mission.metadata as Record<string, unknown>)?.workspaceId ?? null,
         },
       });
     }
@@ -1024,10 +1027,12 @@ export const commandCenterService = {
     const template = await commandCenterRepository.getWorkflowTemplateById(workflowId);
     if (!template) throw new AppError('Workflow template not found', 404);
     return this.createMissionFromPrompt({
+      title: template.name,
       prompt: `${template.objective}\n\nPasos sugeridos:\n${(template.steps as Array<{ title: string; description: string }>).map((step, index) => `${index + 1}. ${step.title}: ${step.description}`).join('\n')}`,
       createdBy: payload.createdBy,
       priority: template.default_priority,
       sandbox: payload.sandbox,
+      metadata: { workflowId: template.id, workflowName: template.name, origen: 'workflow_template' },
     });
   },
   async listSystemSettings() {

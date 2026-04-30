@@ -109,11 +109,12 @@ export function MissionsPage() {
 
       <SectionCard title="Nueva misión" subtitle="Convierte una instrucción natural en un plan estructurado, con riesgo, pasos y control humano." action={<Button onClick={() => setIsModalOpen(true)}>Nueva misión</Button>}>
         <DataTable
-          columns={['Título', 'Estado', 'Riesgo', 'Modo', 'Acciones sensibles', 'Acciones']}
+          columns={['Título', 'Estado', 'Riesgo', 'Origen', 'Modo', 'Acciones sensibles', 'Acciones']}
           rows={missions.map((mission) => [
             <div className="max-w-md"><p className="text-sm font-semibold text-white">{mission.title}</p><p className="mt-1 text-xs text-zinc-500">{mission.summary}</p></div>,
             <StatusBadge status={mission.status} />,
             <StatusBadge status={mission.risk_level} />,
+            <span className="text-sm text-zinc-300">{String((mission.metadata as Record<string, unknown> | undefined)?.workflowName ?? 'Directa')}</span>,
             <span className="text-sm text-zinc-300">{(mission.metadata as Record<string, unknown> | undefined)?.sandbox ? 'Simulación segura' : 'Ejecución real'}</span>,
             <ChipGroup items={mission.sensitive_actions} emptyLabel="Sin acciones sensibles" />,
             <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link>{mission.status === 'planned' ? <Button size="sm" onClick={() => void handleStartMission(mission.id)}>Iniciar misión</Button> : null}{mission.status === 'running' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'pause')}>Pausar</Button> : null}{mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'resume')}>Reanudar</Button> : null}{mission.status !== 'completed' && mission.status !== 'cancelled' && mission.status !== 'failed' ? <Button size="sm" variant="ghost" onClick={() => void handleMissionState(mission.id, 'cancel')}>Cancelar</Button> : null}</div>,
