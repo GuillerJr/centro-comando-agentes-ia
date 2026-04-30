@@ -59,6 +59,30 @@ CREATE TABLE IF NOT EXISTS ai_tasks (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS ai_missions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(180) NOT NULL,
+  description TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  status VARCHAR(30) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'planned', 'queued', 'waiting_for_openclaw', 'running', 'waiting_for_approval', 'paused', 'blocked', 'failed', 'completed', 'cancelled')),
+  priority VARCHAR(20) NOT NULL CHECK (priority IN ('low', 'medium', 'high', 'critical')),
+  risk_level VARCHAR(20) NOT NULL CHECK (risk_level IN ('low', 'medium', 'high', 'critical')),
+  assigned_agent_id UUID REFERENCES ai_agents(id) ON DELETE SET NULL,
+  created_by VARCHAR(120) NOT NULL DEFAULT 'system',
+  summary TEXT NOT NULL,
+  estimated_steps INTEGER NOT NULL DEFAULT 1 CHECK (estimated_steps >= 1),
+  requires_approval BOOLEAN NOT NULL DEFAULT FALSE,
+  sensitive_actions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  required_integrations JSONB NOT NULL DEFAULT '[]'::jsonb,
+  required_permissions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  plan_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  started_at TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS ai_task_runs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   task_id UUID NOT NULL REFERENCES ai_tasks(id) ON DELETE CASCADE,
@@ -211,6 +235,8 @@ CREATE INDEX IF NOT EXISTS idx_ai_agents_status ON ai_agents(status);
 CREATE INDEX IF NOT EXISTS idx_ai_skills_type_status ON ai_skills(skill_type, status);
 CREATE INDEX IF NOT EXISTS idx_ai_tasks_status_priority ON ai_tasks(status, priority);
 CREATE INDEX IF NOT EXISTS idx_ai_tasks_type_status ON ai_tasks(task_type, status);
+CREATE INDEX IF NOT EXISTS idx_ai_missions_status_priority ON ai_missions(status, priority);
+CREATE INDEX IF NOT EXISTS idx_ai_missions_risk_level ON ai_missions(risk_level);
 CREATE INDEX IF NOT EXISTS idx_ai_task_runs_task_id ON ai_task_runs(task_id);
 CREATE INDEX IF NOT EXISTS idx_ai_task_runs_status ON ai_task_runs(status);
 CREATE INDEX IF NOT EXISTS idx_ai_task_runs_trace_id ON ai_task_runs(trace_id);
@@ -232,6 +258,8 @@ DROP TRIGGER IF EXISTS trg_ai_skills_updated_at ON ai_skills;
 CREATE TRIGGER trg_ai_skills_updated_at BEFORE UPDATE ON ai_skills FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_tasks_updated_at ON ai_tasks;
 CREATE TRIGGER trg_ai_tasks_updated_at BEFORE UPDATE ON ai_tasks FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DROP TRIGGER IF EXISTS trg_ai_missions_updated_at ON ai_missions;
+CREATE TRIGGER trg_ai_missions_updated_at BEFORE UPDATE ON ai_missions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_task_runs_updated_at ON ai_task_runs;
 CREATE TRIGGER trg_ai_task_runs_updated_at BEFORE UPDATE ON ai_task_runs FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 DROP TRIGGER IF EXISTS trg_ai_approvals_updated_at ON ai_approvals;

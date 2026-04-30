@@ -1,9 +1,14 @@
-import type { Agent, Approval, AuditLog, ConsoleSnapshot, DashboardData, GlobalSearchResult, McpServer, McpTool, OfficeLayout, OfficeState, Skill, SystemSetting, Task, TaskRun } from '../types/domain';
+import type { Agent, Approval, AuditLog, ConsoleSnapshot, DashboardData, GlobalSearchResult, McpServer, McpTool, Mission, OfficeLayout, OfficeState, Skill, SystemSetting, Task, TaskRun } from '../types/domain';
 import { apiRequest } from './client';
 
 export const commandCenterApi = {
   getDashboard: () => apiRequest<DashboardData>('/system/dashboard'),
   globalSearch: (query: string) => apiRequest<GlobalSearchResult[]>(`/system/search?q=${encodeURIComponent(query)}`),
+  getMissions: () => apiRequest<Mission[]>('/missions'),
+  getMissionById: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}`),
+  createMission: (payload: { prompt: string; createdBy: string; priority: string }) => apiRequest<Mission>('/missions', { method: 'POST', body: JSON.stringify(payload) }),
+  updateMission: (missionId: string, payload: any) => apiRequest<Mission>(`/missions/${missionId}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  startMission: (missionId: string) => apiRequest<{ mission: Mission; task: Task; requiresApproval: boolean }>(`/missions/${missionId}/start`, { method: 'POST' }),
   getHealth: () => apiRequest('/system/health'),
   getOpenClawStatus: () => apiRequest('/system/openclaw/status'),
   validateOpenClawConnection: (mode?: string) => apiRequest('/system/openclaw/validate-connection', { method: 'POST', body: JSON.stringify({ mode }) }),

@@ -67,6 +67,28 @@ type OfficeConsistencyWarning = {
   description: string;
 };
 
+type MissionRecord = {
+  id: string;
+  title: string;
+  description: string;
+  objective: string;
+  status: string;
+  priority: string;
+  risk_level: string;
+  assigned_agent_id: string | null;
+  created_by: string;
+  summary: string;
+  estimated_steps: number;
+  requires_approval: boolean;
+  sensitive_actions: string[];
+  required_integrations: string[];
+  required_permissions: string[];
+  plan_json: Array<{ title: string; description: string; sensitive: boolean }>;
+  metadata: Record<string, unknown>;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
 type OfficeAssignmentRecord = {
   id: string;
   station_id: string;
@@ -119,6 +141,36 @@ function toTaskUpdatePayload(task: TaskRecord, overrides: Record<string, unknown
     completedAt: null,
     ...overrides,
   };
+}
+
+function detectRiskLevel(prompt: string): 'low' | 'medium' | 'high' | 'critical' {
+  const normalized = prompt.toLowerCase();
+  if (/(dinero|producción|credencial|token|clave|borrar|eliminar|shell|instalar|script)/.test(normalized)) return 'critical';
+  if (/(email|correo|calendario|reunión|comando|archivo|configuración|servicio externo)/.test(normalized)) return 'high';
+  if (/(editar|actualizar|proponer|crear)/.test(normalized)) return 'medium';
+  return 'low';
+}
+
+function detectSensitiveActions(prompt: string) {
+  const normalized = prompt.toLowerCase();
+  const candidates = [
+    ['enviar correos', /(email|correo|responder)/],
+    ['modificar calendario', /(calendario|reunión|agenda)/],
+    ['ejecutar comandos', /(shell|comando|terminal|script)/],
+    ['cambiar configuraciones', /(configuración|configurar|setting)/],
+    ['acceder a archivos sensibles', /(archivo|documento|privado|secreto)/],
+  ] as const;
+  return candidates.filter(([, pattern]) => pattern.test(normalized)).map(([label]) => label);
+}
+
+function buildMissionPlan(prompt: string) {
+  const sensitiveActions = detectSensitiveActions(prompt);
+  return [
+    { title: 'Analizar misión', description: 'Interpretar el objetivo, el contexto y el resultado esperado.', sensitive: false },
+    { title: 'Preparar ejecución', description: 'Definir agente, recursos, integraciones y controles requeridos.', sensitive: false },
+    { title: 'Ejecutar pasos operativos', description: 'Enviar la instrucción a OpenClaw mediante el conector configurado.', sensitive: sensitiveActions.length > 0 },
+    { title: 'Cerrar y resumir', description: 'Consolidar resultado, trazas y siguientes pasos para el operador.', sensitive: false },
+  ];
 }
 
 function requireOffice(office: OfficeRecord | null) {
@@ -413,6 +465,99 @@ async function syncStationOccupancy(stationId: string, assignments: OfficeAssign
 }
 
 export const commandCenterService = {
+  // Devuelve la lista principal de misiones para la bandeja del centro de mando.
+  async listMissions() {
+    return commandCenterRepository.getMissions();
+  },
+  // Recupera una misión y falla si el identificador no existe.
+  async getMissionById(missionId: string) {
+    const mission = await commandCenterRepository.getMissionById(missionId);
+    if (!mission) throw new AppError('Mission not found', 404);
+    return mission;
+  },
+  // Crea una misión inicial a partir de un prompt de alto nivel.
+  async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string }) {
+    const riskLevel = detectRiskLevel(payload.prompt);
+    const sensitiveActions = detectSensitiveActions(payload.prompt);
+    const agents = await commandCenterRepository.getAgents();
+    const assignedAgent = agents.find((agent) => agent.status === 'active') ?? null;
+    const created = await commandCenterRepository.createMission({
+      title: payload.prompt.slice(0, 120),
+      description: payload.prompt,
+      objective: payload.prompt,
+      status: 'planned',
+      priority: payload.priority,
+      riskLevel,
+      assignedAgentId: assignedAgent?.id ?? null,
+      createdBy: payload.createdBy,
+      summary: 'Misión estructurada y pendiente de confirmación del operador.',
+      estimatedSteps: 4,
+      requiresApproval: ['high', 'critical'].includes(riskLevel) || sensitiveActions.length > 0,
+      sensitiveActions,
+      requiredIntegrations: [],
+      requiredPermissions: sensitiveActions.length > 0 ? ['aprobación_humana'] : [],
+      plan: buildMissionPlan(payload.prompt),
+      metadata: { promptOriginal: payload.prompt, origen: 'mission_control' },
+    });
+    await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_created', moduleName: 'missions', payloadSummary: { missionId: created.id, riskLevel }, resultStatus: 'success', severity: 'info' });
+    return created;
+  },
+  // Permite modificar el plan propuesto antes de enviarlo a ejecución.
+  async updateMission(missionId: string, payload: any) {
+    const mission = await commandCenterRepository.updateMission(missionId, payload);
+    if (!mission) throw new AppError('Mission not found', 404);
+    await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_updated', moduleName: 'missions', payloadSummary: { missionId }, resultStatus: 'success', severity: 'info' });
+    return mission;
+  },
+  // Inicia la misión, crea una tarea operativa base y genera aprobación si hay riesgo alto.
+  async startMission(missionId: string) {
+    const mission = await this.getMissionById(missionId) as MissionRecord;
+    const updatedMission = await commandCenterRepository.updateMission(missionId, {
+      title: mission.title,
+      description: mission.description,
+      objective: mission.objective,
+      status: mission.requires_approval ? 'waiting_for_approval' : 'running',
+      priority: mission.priority,
+      riskLevel: mission.risk_level,
+      assignedAgentId: mission.assigned_agent_id,
+      createdBy: mission.created_by,
+      summary: mission.summary,
+      estimatedSteps: mission.estimated_steps,
+      requiresApproval: mission.requires_approval,
+      sensitiveActions: mission.sensitive_actions,
+      requiredIntegrations: mission.required_integrations,
+      requiredPermissions: mission.required_permissions,
+      plan: mission.plan_json,
+      metadata: mission.metadata,
+      startedAt: new Date().toISOString(),
+      completedAt: null,
+    });
+    const task = await commandCenterRepository.createTask({
+      title: mission.title,
+      description: mission.description,
+      priority: mission.priority,
+      taskType: 'fullstack',
+      leadSkillId: null,
+      supportSkillIds: [],
+      status: mission.requires_approval ? 'awaiting_approval' : 'pending',
+      resultSummary: null,
+      logs: null,
+      createdBy: mission.created_by,
+      metadata: { missionId: mission.id, requestedAction: mission.objective },
+    });
+    if (mission.requires_approval) {
+      await commandCenterRepository.createApproval({
+        taskId: task.id,
+        runId: null,
+        approvalType: 'config_change',
+        reason: `La misión requiere revisión humana por riesgo ${mission.risk_level}.`,
+        requestedBy: mission.created_by,
+        payloadSummary: { missionId: mission.id, sensitiveActions: mission.sensitive_actions, objective: mission.objective },
+      });
+    }
+    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_started', moduleName: 'missions', payloadSummary: { missionId, taskId: task.id }, resultStatus: 'success', severity: mission.requires_approval ? 'warning' : 'info' });
+    return { mission: updatedMission, task, requiresApproval: mission.requires_approval };
+  },
   async globalSearch(query: string) {
     const term = query.trim().toLowerCase();
     if (!term) return [];

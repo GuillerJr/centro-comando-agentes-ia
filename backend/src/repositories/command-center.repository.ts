@@ -55,6 +55,29 @@ export const commandCenterRepository = {
     );
     return result.rows[0] ?? null;
   },
+  async getMissions() {
+    const result = await pool.query('SELECT * FROM ai_missions ORDER BY created_at DESC');
+    return result.rows;
+  },
+  async getMissionById(missionId: string) {
+    const result = await pool.query('SELECT * FROM ai_missions WHERE id = $1', [missionId]);
+    return result.rows[0] ?? null;
+  },
+  async createMission(payload: any) {
+    const result = await pool.query(
+      `INSERT INTO ai_missions (title, description, objective, status, priority, risk_level, assigned_agent_id, created_by, summary, estimated_steps, requires_approval, sensitive_actions, required_integrations, required_permissions, plan_json, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
+      [payload.title, payload.description, payload.objective, payload.status, payload.priority, payload.riskLevel, payload.assignedAgentId, payload.createdBy, payload.summary, payload.estimatedSteps, payload.requiresApproval, JSON.stringify(payload.sensitiveActions ?? []), JSON.stringify(payload.requiredIntegrations ?? []), JSON.stringify(payload.requiredPermissions ?? []), JSON.stringify(payload.plan ?? []), JSON.stringify(payload.metadata ?? {})],
+    );
+    return result.rows[0];
+  },
+  async updateMission(missionId: string, payload: any) {
+    const result = await pool.query(
+      `UPDATE ai_missions SET title=$2, description=$3, objective=$4, status=$5, priority=$6, risk_level=$7, assigned_agent_id=$8, created_by=$9, summary=$10, estimated_steps=$11, requires_approval=$12, sensitive_actions=$13, required_integrations=$14, required_permissions=$15, plan_json=$16, metadata=$17, started_at=$18, completed_at=$19 WHERE id=$1 RETURNING *`,
+      [missionId, payload.title, payload.description, payload.objective, payload.status, payload.priority, payload.riskLevel, payload.assignedAgentId, payload.createdBy, payload.summary, payload.estimatedSteps, payload.requiresApproval, JSON.stringify(payload.sensitiveActions ?? []), JSON.stringify(payload.requiredIntegrations ?? []), JSON.stringify(payload.requiredPermissions ?? []), JSON.stringify(payload.plan ?? []), JSON.stringify(payload.metadata ?? {}), payload.startedAt ?? null, payload.completedAt ?? null],
+    );
+    return result.rows[0] ?? null;
+  },
   async getTasks() {
     const result = await pool.query('SELECT * FROM ai_tasks ORDER BY created_at DESC');
     return result.rows;

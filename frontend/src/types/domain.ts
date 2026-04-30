@@ -29,6 +29,8 @@ export type McpTool = { id: string; server_id: string; name: string; description
 export type SystemSetting = { id: string; setting_key: string; setting_value: unknown; category: string; is_sensitive: boolean; description: string; };
 export type ConsoleSnapshot = { availableAgents: Array<{ name: string; type: string; status: string }>; availableSkills: Array<{ canonicalName: string; type: string }>; logs: Array<{ timestamp: string; level: string; message: string }>; commandWhitelist: string[]; mode: string; };
 export type GlobalSearchResult = { id: string; type: string; title: string; subtitle: string; href: string };
+export type MissionPlanStep = { title: string; description: string; sensitive: boolean };
+export type Mission = { id: string; title: string; description: string; objective: string; status: string; priority: string; risk_level: string; assigned_agent_id?: string | null; created_by: string; summary: string; estimated_steps: number; requires_approval: boolean; sensitive_actions: string[]; required_integrations: string[]; required_permissions: string[]; plan_json: MissionPlanStep[]; metadata?: Record<string, unknown>; started_at?: string | null; completed_at?: string | null; created_at: string; };
 
 export type Office = { id: string; slug: string; name: string; description: string; gridColumns: number; gridRows: number; metadata?: Record<string, unknown>; };
 export type OfficeStation = { id: string; code: string; name: string; stationType: string; status: string; capacity: number; assignmentCount: number; availableCapacity: number; isOverCapacity: boolean; };

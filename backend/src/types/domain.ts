@@ -7,3 +7,5 @@ export type RunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancell
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'executed';
 export type Severity = 'info' | 'warning' | 'error' | 'critical';
 export type OpenClawMode = 'mock' | 'api' | 'cli';
+export type MissionStatus = 'draft' | 'planned' | 'queued' | 'waiting_for_openclaw' | 'running' | 'waiting_for_approval' | 'paused' | 'blocked' | 'failed' | 'completed' | 'cancelled';
+export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';

@@ -7,6 +7,7 @@ import agentsRoutes from './routes/agents.routes.js';
 import approvalsRoutes from './routes/approvals.routes.js';
 import auditRoutes from './routes/audit.routes.js';
 import mcpRoutes from './routes/mcp.routes.js';
+import missionsRoutes from './routes/missions.routes.js';
 import officesRoutes from './routes/offices.routes.js';
 import runsRoutes from './routes/runs.routes.js';
 import skillsRoutes from './routes/skills.routes.js';
@@ -27,6 +28,7 @@ app.use('/api/task-runs', runsRoutes);
 app.use('/api/approvals', approvalsRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/mcp', mcpRoutes);
+app.use('/api/missions', missionsRoutes);
 app.use('/api/offices', officesRoutes);
 
 app.use(errorHandler);
