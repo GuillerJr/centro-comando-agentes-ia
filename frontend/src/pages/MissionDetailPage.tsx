@@ -137,6 +137,7 @@ export function MissionDetailPage() {
               ['Permisos requeridos', <ChipGroup items={mission.required_permissions} emptyLabel="Sin permisos especiales" />],
               ['Modo de ejecución', <div className="text-sm text-zinc-300">{(mission.metadata as any)?.sandbox ? 'Simulación segura' : 'Ejecución real'}</div>],
               ['Origen operativo', <div className="text-sm text-zinc-300">{(mission.metadata as any)?.workflowName ? `Flujo: ${(mission.metadata as any).workflowName}` : 'Misión directa'}</div>],
+              ['Espacio operativo', <div className="text-sm text-zinc-300">{(mission.metadata as any)?.workspaceName ?? 'Sin espacio específico'}</div>],
               ['Decisión de política', <div className="text-sm text-zinc-300">{String((mission.metadata as any)?.decisionesPolitica?.bloqueaPorPolitica ? 'Bloqueada por política preventiva' : 'Sin bloqueo preventivo')}</div>],
             ]}
           />

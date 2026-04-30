@@ -6,7 +6,7 @@ export const commandCenterApi = {
   globalSearch: (query: string) => apiRequest<GlobalSearchResult[]>(`/system/search?q=${encodeURIComponent(query)}`),
   getMissions: () => apiRequest<Mission[]>('/missions'),
   getMissionById: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}`),
-  createMission: (payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean }) => apiRequest<Mission>('/missions', { method: 'POST', body: JSON.stringify(payload) }),
+  createMission: (payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean; workspaceId?: string }) => apiRequest<Mission>('/missions', { method: 'POST', body: JSON.stringify(payload) }),
   updateMission: (missionId: string, payload: any) => apiRequest<Mission>(`/missions/${missionId}`, { method: 'PUT', body: JSON.stringify(payload) }),
   startMission: (missionId: string) => apiRequest<{ mission: Mission; task: Task; requiresApproval: boolean }>(`/missions/${missionId}/start`, { method: 'POST' }),
   pauseMission: (missionId: string) => apiRequest<Mission>(`/missions/${missionId}/pause`, { method: 'POST' }),

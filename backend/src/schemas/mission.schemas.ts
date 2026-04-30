@@ -13,6 +13,7 @@ export const createMissionSchema = z.object({
   createdBy: z.string().min(2).default('Guiller'),
   priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
   sandbox: z.boolean().default(true),
+  workspaceId: z.string().uuid().optional(),
 });
 
 // Valida el cuerpo editable del plan antes de iniciar una misión.

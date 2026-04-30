@@ -522,12 +522,13 @@ export const commandCenterService = {
     return { ...mission, related_tasks: missionTasks, related_approvals: approvals, related_runs: runs, trace };
   },
   // Crea una misión inicial a partir de un prompt de alto nivel.
-  async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean; title?: string; metadata?: Record<string, unknown> }) {
+  async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean; workspaceId?: string; title?: string; metadata?: Record<string, unknown> }) {
     const riskLevel = detectRiskLevel(payload.prompt);
     const sensitiveActions = detectSensitiveActions(payload.prompt);
-    const [agents, settings] = await Promise.all([
+    const [agents, settings, workspace] = await Promise.all([
       commandCenterRepository.getAgents(),
       commandCenterRepository.getSystemSettings(),
+      payload.workspaceId ? commandCenterRepository.getWorkspaceById(payload.workspaceId) : Promise.resolve(null),
     ]);
     const requireApprovalHighRisk = resolvePolicyValue(settings, 'politica.aprobacion_riesgo_alto', true);
     const blockShellCommands = resolvePolicyValue(settings, 'politica.bloquear_shell_sin_aprobacion', true);
@@ -543,16 +544,16 @@ export const commandCenterService = {
       riskLevel,
       assignedAgentId: assignedAgent?.id ?? null,
       createdBy: payload.createdBy,
-      summary: bloqueaPorPolitica ? 'La misión quedó bloqueada por política de shell sin aprobación.' : payload.sandbox ? 'Misión estructurada en modo sandbox, sin ejecutar acciones reales hasta nueva decisión.' : 'Misión estructurada y pendiente de confirmación del operador.',
+      summary: bloqueaPorPolitica ? 'La misión quedó bloqueada por política de shell sin aprobación.' : payload.sandbox ? `Misión estructurada en modo simulación segura${workspace ? ` para el espacio ${workspace.name}` : ''}, sin ejecutar acciones reales hasta nueva decisión.` : `Misión estructurada${workspace ? ` para el espacio ${workspace.name}` : ''} y pendiente de confirmación del operador.`,
       estimatedSteps: 4,
       requiresApproval,
       sensitiveActions,
       requiredIntegrations: [],
       requiredPermissions: requiresApproval ? ['aprobación_humana'] : [],
       plan: buildMissionPlan(payload.prompt),
-      metadata: { promptOriginal: payload.prompt, origen: 'mission_control', sandbox: payload.sandbox, decisionesPolitica: { requireApprovalHighRisk, blockShellCommands, bloqueaPorPolitica }, ...(payload.metadata ?? {}) },
+      metadata: { promptOriginal: payload.prompt, origen: 'mission_control', sandbox: payload.sandbox, workspaceId: workspace?.id ?? payload.workspaceId ?? null, workspaceName: workspace?.name ?? null, decisionesPolitica: { requireApprovalHighRisk, blockShellCommands, bloqueaPorPolitica }, ...(payload.metadata ?? {}) },
     });
-    await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_created', moduleName: 'missions', payloadSummary: { missionId: created.id, riskLevel }, resultStatus: 'success', severity: 'info' });
+    await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_created', moduleName: 'missions', payloadSummary: { missionId: created.id, riskLevel, workspaceId: workspace?.id ?? null, workspaceName: workspace?.name ?? null }, resultStatus: 'success', severity: 'info' });
     return created;
   },
   // Permite modificar el plan propuesto antes de enviarlo a ejecución.
@@ -596,7 +597,7 @@ export const commandCenterService = {
       resultSummary: null,
       logs: null,
       createdBy: mission.created_by,
-      metadata: { missionId: mission.id, requestedAction: mission.objective, sandbox: Boolean((mission.metadata as Record<string, unknown>)?.sandbox), workflowId: (mission.metadata as Record<string, unknown>)?.workflowId ?? null, workspaceId: (mission.metadata as Record<string, unknown>)?.workspaceId ?? null },
+      metadata: { missionId: mission.id, requestedAction: mission.objective, sandbox: Boolean((mission.metadata as Record<string, unknown>)?.sandbox), workflowId: (mission.metadata as Record<string, unknown>)?.workflowId ?? null, workspaceId: (mission.metadata as Record<string, unknown>)?.workspaceId ?? null, workspaceName: (mission.metadata as Record<string, unknown>)?.workspaceName ?? null },
     });
     if (mission.requires_approval) {
       await commandCenterRepository.createApproval({
@@ -616,10 +617,11 @@ export const commandCenterService = {
           workflowId: (mission.metadata as Record<string, unknown>)?.workflowId ?? null,
           workflowName: (mission.metadata as Record<string, unknown>)?.workflowName ?? null,
           workspaceId: (mission.metadata as Record<string, unknown>)?.workspaceId ?? null,
+          workspaceName: (mission.metadata as Record<string, unknown>)?.workspaceName ?? null,
         },
       });
     }
-    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_started', moduleName: 'missions', payloadSummary: { missionId, taskId: task.id }, resultStatus: 'success', severity: mission.requires_approval ? 'warning' : 'info' });
+    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_started', moduleName: 'missions', payloadSummary: { missionId, taskId: task.id, workspaceId: (mission.metadata as Record<string, unknown>)?.workspaceId ?? null, workspaceName: (mission.metadata as Record<string, unknown>)?.workspaceName ?? null }, resultStatus: 'success', severity: mission.requires_approval ? 'warning' : 'info' });
     return { mission: updatedMission, task, requiresApproval: mission.requires_approval };
   },
   // Pausa una misión y marca sus tareas vivas como pendientes de reanudación.

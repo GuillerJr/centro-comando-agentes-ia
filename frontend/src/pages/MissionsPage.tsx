@@ -5,10 +5,11 @@ import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { Modal } from '../components/modal';
 import { ActionFeedback, ChipGroup, DataTable, ErrorState, FormField, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
-import type { Mission } from '../types/domain';
+import type { Mission, Workspace } from '../types/domain';
 
 export function MissionsPage() {
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,13 +18,19 @@ export function MissionsPage() {
   const [prompt, setPrompt] = useState('');
   const [priority, setPriority] = useState('medium');
   const [sandbox, setSandbox] = useState(true);
+  const [workspaceId, setWorkspaceId] = useState('');
 
   // Carga la bandeja principal de misiones disponibles para operación.
   const loadMissions = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      setMissions(await commandCenterApi.getMissions());
+      const [missionData, workspaceData] = await Promise.all([
+        commandCenterApi.getMissions(),
+        commandCenterApi.getWorkspaces(),
+      ]);
+      setMissions(missionData);
+      setWorkspaces(workspaceData);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'No se pudieron cargar las misiones.');
     } finally {
@@ -42,11 +49,12 @@ export function MissionsPage() {
       setIsSubmitting(true);
       setError(null);
       setFeedback(null);
-      await commandCenterApi.createMission({ prompt, createdBy: 'Guiller', priority, sandbox });
+      await commandCenterApi.createMission({ prompt, createdBy: 'Guiller', priority, sandbox, workspaceId: workspaceId || undefined });
       setFeedback(`La misión se creó en modo ${sandbox ? 'simulación segura' : 'ejecución real'} y quedó lista para revisión.`);
       setPrompt('');
       setPriority('medium');
       setSandbox(true);
+      setWorkspaceId('');
       setIsModalOpen(false);
       await loadMissions();
     } catch (reason) {
@@ -109,12 +117,13 @@ export function MissionsPage() {
 
       <SectionCard title="Nueva misión" subtitle="Convierte una instrucción natural en un plan estructurado, con riesgo, pasos y control humano." action={<Button onClick={() => setIsModalOpen(true)}>Nueva misión</Button>}>
         <DataTable
-          columns={['Título', 'Estado', 'Riesgo', 'Origen', 'Modo', 'Acciones sensibles', 'Acciones']}
+          columns={['Título', 'Estado', 'Riesgo', 'Origen', 'Espacio', 'Modo', 'Acciones sensibles', 'Acciones']}
           rows={missions.map((mission) => [
             <div className="max-w-md"><p className="text-sm font-semibold text-white">{mission.title}</p><p className="mt-1 text-xs text-zinc-500">{mission.summary}</p></div>,
             <StatusBadge status={mission.status} />,
             <StatusBadge status={mission.risk_level} />,
             <span className="text-sm text-zinc-300">{String((mission.metadata as Record<string, unknown> | undefined)?.workflowName ?? 'Directa')}</span>,
+            <span className="text-sm text-zinc-300">{String((mission.metadata as Record<string, unknown> | undefined)?.workspaceName ?? 'Sin espacio')}</span>,
             <span className="text-sm text-zinc-300">{(mission.metadata as Record<string, unknown> | undefined)?.sandbox ? 'Simulación segura' : 'Ejecución real'}</span>,
             <ChipGroup items={mission.sensitive_actions} emptyLabel="Sin acciones sensibles" />,
             <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link>{mission.status === 'planned' ? <Button size="sm" onClick={() => void handleStartMission(mission.id)}>Iniciar misión</Button> : null}{mission.status === 'running' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'pause')}>Pausar</Button> : null}{mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'resume')}>Reanudar</Button> : null}{mission.status !== 'completed' && mission.status !== 'cancelled' && mission.status !== 'failed' ? <Button size="sm" variant="ghost" onClick={() => void handleMissionState(mission.id, 'cancel')}>Cancelar</Button> : null}</div>,
@@ -144,6 +153,12 @@ export function MissionsPage() {
               <option value="medium">media</option>
               <option value="high">alta</option>
               <option value="critical">crítica</option>
+            </select>
+          </FormField>
+          <FormField label="Espacio operativo">
+            <select className="panel-input" value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)}>
+              <option value="">Sin espacio específico</option>
+              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
             </select>
           </FormField>
           <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-200"><input type="checkbox" checked={sandbox} onChange={(event) => setSandbox(event.target.checked)} />Crear en modo simulación segura</label>

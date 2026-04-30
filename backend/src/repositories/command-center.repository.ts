@@ -230,6 +230,10 @@ export const commandCenterRepository = {
     );
     return result.rows;
   },
+  async getWorkspaceById(workspaceId: string) {
+    const result = await pool.query('SELECT * FROM ai_workspaces WHERE id = $1', [workspaceId]);
+    return result.rows[0] ?? null;
+  },
   async createWorkspace(payload: any) {
     const result = await pool.query(
       `WITH created_workspace AS (
