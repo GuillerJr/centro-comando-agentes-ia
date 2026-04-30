@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { commandCenterService } from '../services/command-center.service.js';
-import { createMissionSchema, missionIdParamsSchema, updateMissionSchema } from '../schemas/mission.schemas.js';
+import { createMissionSchema, missionActionActorSchema, missionIdParamsSchema, updateMissionSchema } from '../schemas/mission.schemas.js';
 import { successResponse } from '../utils/api.js';
 
 export const missionsController = {
@@ -35,28 +35,32 @@ export const missionsController = {
   // Inicia la misión, crea su tarea base y solicita aprobación si el riesgo lo exige.
   async start(request: Request, response: Response) {
     const { missionId } = missionIdParamsSchema.parse(request.params);
-    const data = await commandCenterService.startMission(missionId);
+    const { actorName } = missionActionActorSchema.parse(request.body ?? {});
+    const data = await commandCenterService.startMission(missionId, actorName);
     return response.json(successResponse('Misión iniciada', data));
   },
 
   // Pausa una misión desde la capa de mando para frenar el flujo superior.
   async pause(request: Request, response: Response) {
     const { missionId } = missionIdParamsSchema.parse(request.params);
-    const data = await commandCenterService.pauseMission(missionId);
+    const { actorName } = missionActionActorSchema.parse(request.body ?? {});
+    const data = await commandCenterService.pauseMission(missionId, actorName);
     return response.json(successResponse('Misión pausada', data));
   },
 
   // Reanuda una misión siempre que no siga bloqueada por gobernanza.
   async resume(request: Request, response: Response) {
     const { missionId } = missionIdParamsSchema.parse(request.params);
-    const data = await commandCenterService.resumeMission(missionId);
+    const { actorName } = missionActionActorSchema.parse(request.body ?? {});
+    const data = await commandCenterService.resumeMission(missionId, actorName);
     return response.json(successResponse('Misión reanudada', data));
   },
 
   // Cancela la misión desde la capa de mando y detiene su avance superior.
   async cancel(request: Request, response: Response) {
     const { missionId } = missionIdParamsSchema.parse(request.params);
-    const data = await commandCenterService.cancelMission(missionId);
+    const { actorName } = missionActionActorSchema.parse(request.body ?? {});
+    const data = await commandCenterService.cancelMission(missionId, actorName);
     return response.json(successResponse('Misión cancelada', data));
   },
 };

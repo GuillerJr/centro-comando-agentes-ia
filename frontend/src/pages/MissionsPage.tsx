@@ -69,7 +69,7 @@ export function MissionsPage() {
     try {
       setError(null);
       setFeedback(null);
-      const result = await commandCenterApi.startMission(missionId);
+      const result = await commandCenterApi.startMission(missionId, 'Guiller');
       setFeedback(result.requiresApproval ? 'La misión inició y quedó en espera de aprobación.' : 'La misión inició correctamente.');
       await loadMissions();
     } catch (reason) {
@@ -82,13 +82,13 @@ export function MissionsPage() {
       setError(null);
       setFeedback(null);
       if (action === 'pause') {
-        await commandCenterApi.pauseMission(missionId);
+        await commandCenterApi.pauseMission(missionId, 'Guiller');
         setFeedback('La misión quedó pausada desde el centro de mando.');
       } else if (action === 'resume') {
-        await commandCenterApi.resumeMission(missionId);
+        await commandCenterApi.resumeMission(missionId, 'Guiller');
         setFeedback('La misión se reanudó según su estado de gobernanza.');
       } else {
-        await commandCenterApi.cancelMission(missionId);
+        await commandCenterApi.cancelMission(missionId, 'Guiller');
         setFeedback('La misión quedó cancelada y su trabajo relacionado se cerró.');
       }
       await loadMissions();
@@ -158,7 +158,7 @@ export function MissionsPage() {
               <option value="critical">crítica</option>
             </select>
           </FormField>
-          <FormField label="Espacio operativo" helper={selectedWorkspace ? `Actor operativo: Guiller, rol detectado: ${selectedWorkspaceRole ?? 'sin rol'}.` : 'Si eliges un espacio, Mission Control validará que el actor tenga rol operativo.'}>
+          <FormField label="Espacio operativo" helper={selectedWorkspace ? `Actor operativo: Guiller, rol detectado: ${selectedWorkspaceRole ?? 'sin rol'}. Solo propietario, administrador u operador pueden ejecutar acciones sensibles.` : 'Si eliges un espacio, Mission Control validará que el actor tenga rol operativo.'}>
             <select className="panel-input" value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)}>
               <option value="">Sin espacio específico</option>
               {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}

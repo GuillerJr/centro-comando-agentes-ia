@@ -36,6 +36,11 @@ export const updateMissionSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).default({}),
 });
 
+// Valida el actor que intenta ejecutar una acción sensible sobre una misión.
+export const missionActionActorSchema = z.object({
+  actorName: z.string().min(2).default('Guiller'),
+});
+
 // Reutiliza la misma forma para el identificador de misión en rutas.
 export const missionIdParamsSchema = z.object({
   missionId: z.string().uuid(),

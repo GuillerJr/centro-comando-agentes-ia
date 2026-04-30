@@ -201,6 +201,16 @@ function canOperateWorkspace(roleKey?: string | null) {
   return ['owner', 'admin', 'operator'].includes(String(roleKey ?? ''));
 }
 
+async function ensureWorkspaceMissionAccess(mission: { metadata?: Record<string, unknown> }, actorName: string) {
+  const workspaceId = String(mission.metadata?.workspaceId ?? '');
+  if (!workspaceId) return null;
+  const membership = await commandCenterRepository.getWorkspaceMembershipByName(workspaceId, actorName);
+  if (!canOperateWorkspace(membership?.role_key)) {
+    throw new AppError('El actor no tiene permisos operativos para ejecutar esta misión dentro del espacio asociado.', 403);
+  }
+  return membership;
+}
+
 function resolvePolicyValue(settings: Array<{ setting_key: string; setting_value: unknown }>, key: string, fallback: boolean) {
   const matched = settings.find((setting) => setting.setting_key === key);
   if (!matched) return fallback;
@@ -572,8 +582,9 @@ export const commandCenterService = {
     return mission;
   },
   // Inicia la misión, crea una tarea operativa base y genera aprobación si hay riesgo alto.
-  async startMission(missionId: string) {
+  async startMission(missionId: string, actorName: string) {
     const mission = await this.getMissionById(missionId) as MissionRecord;
+    const membership = await ensureWorkspaceMissionAccess(mission as unknown as { metadata?: Record<string, unknown> }, actorName);
     const updatedMission = await commandCenterRepository.updateMission(missionId, {
       title: mission.title,
       description: mission.description,
@@ -629,12 +640,13 @@ export const commandCenterService = {
         },
       });
     }
-    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_started', moduleName: 'missions', payloadSummary: { missionId, taskId: task.id, workspaceId: (mission.metadata as Record<string, unknown>)?.workspaceId ?? null, workspaceName: (mission.metadata as Record<string, unknown>)?.workspaceName ?? null }, resultStatus: 'success', severity: mission.requires_approval ? 'warning' : 'info' });
+    await commandCenterRepository.createAuditLog({ actor: actorName, action: 'mission_started', moduleName: 'missions', payloadSummary: { missionId, taskId: task.id, workspaceId: (mission.metadata as Record<string, unknown>)?.workspaceId ?? null, workspaceName: (mission.metadata as Record<string, unknown>)?.workspaceName ?? null, workspaceRole: membership?.role_key ?? null }, resultStatus: 'success', severity: mission.requires_approval ? 'warning' : 'info' });
     return { mission: updatedMission, task, requiresApproval: mission.requires_approval };
   },
   // Pausa una misión y marca sus tareas vivas como pendientes de reanudación.
-  async pauseMission(missionId: string) {
+  async pauseMission(missionId: string, actorName: string) {
     const mission = await this.getMissionById(missionId) as MissionRecord & { related_tasks?: TaskRecord[] };
+    const membership = await ensureWorkspaceMissionAccess(mission as unknown as { metadata?: Record<string, unknown> }, actorName);
     const updatedMission = await commandCenterRepository.updateMission(missionId, {
       title: mission.title,
       description: mission.description,
@@ -660,12 +672,13 @@ export const commandCenterService = {
         await commandCenterRepository.updateTask(task.id, toTaskUpdatePayload(task as TaskRecord, { status: 'pending' }));
       }
     }
-    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_paused', moduleName: 'missions', payloadSummary: { missionId }, resultStatus: 'warning', severity: 'warning' });
+    await commandCenterRepository.createAuditLog({ actor: actorName, action: 'mission_paused', moduleName: 'missions', payloadSummary: { missionId, workspaceRole: membership?.role_key ?? null }, resultStatus: 'warning', severity: 'warning' });
     return updatedMission;
   },
   // Reanuda una misión pausada si no sigue bloqueada por política o aprobación.
-  async resumeMission(missionId: string) {
+  async resumeMission(missionId: string, actorName: string) {
     const mission = await this.getMissionById(missionId) as MissionRecord & { related_tasks?: TaskRecord[]; related_approvals?: Array<{ status: string }> };
+    const membership = await ensureWorkspaceMissionAccess(mission as unknown as { metadata?: Record<string, unknown> }, actorName);
     const pendingApproval = (mission.related_approvals ?? []).some((approval) => approval.status === 'pending');
     const blockedByPolicy = Boolean((mission.metadata as Record<string, any>)?.decisionesPolitica?.bloqueaPorPolitica);
     const nextStatus = pendingApproval ? 'waiting_for_approval' : blockedByPolicy ? 'blocked' : 'running';
@@ -694,12 +707,13 @@ export const commandCenterService = {
         await commandCenterRepository.updateTask(task.id, toTaskUpdatePayload(task as TaskRecord, { status: pendingApproval ? 'awaiting_approval' : 'pending' }));
       }
     }
-    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_resumed', moduleName: 'missions', payloadSummary: { missionId, nextStatus }, resultStatus: 'success', severity: pendingApproval || blockedByPolicy ? 'warning' : 'info' });
+    await commandCenterRepository.createAuditLog({ actor: actorName, action: 'mission_resumed', moduleName: 'missions', payloadSummary: { missionId, nextStatus, workspaceRole: membership?.role_key ?? null }, resultStatus: 'success', severity: pendingApproval || blockedByPolicy ? 'warning' : 'info' });
     return updatedMission;
   },
   // Cancela una misión y propaga esa decisión a las tareas vivas relacionadas.
-  async cancelMission(missionId: string) {
+  async cancelMission(missionId: string, actorName: string) {
     const mission = await this.getMissionById(missionId) as MissionRecord & { related_tasks?: TaskRecord[] };
+    const membership = await ensureWorkspaceMissionAccess(mission as unknown as { metadata?: Record<string, unknown> }, actorName);
     const updatedMission = await commandCenterRepository.updateMission(missionId, {
       title: mission.title,
       description: mission.description,
@@ -725,7 +739,7 @@ export const commandCenterService = {
         await commandCenterRepository.cancelTask(task.id);
       }
     }
-    await commandCenterRepository.createAuditLog({ actor: mission.created_by, action: 'mission_cancelled', moduleName: 'missions', payloadSummary: { missionId }, resultStatus: 'warning', severity: 'warning' });
+    await commandCenterRepository.createAuditLog({ actor: actorName, action: 'mission_cancelled', moduleName: 'missions', payloadSummary: { missionId, workspaceRole: membership?.role_key ?? null }, resultStatus: 'warning', severity: 'warning' });
     return updatedMission;
   },
   async globalSearch(query: string) {

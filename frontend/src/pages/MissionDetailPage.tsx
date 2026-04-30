@@ -79,13 +79,13 @@ export function MissionDetailPage() {
       setError(null);
       setFeedback(null);
       if (action === 'pause') {
-        await commandCenterApi.pauseMission(missionId);
+        await commandCenterApi.pauseMission(missionId, 'Guiller');
         setFeedback('La misión quedó pausada desde este detalle.');
       } else if (action === 'resume') {
-        await commandCenterApi.resumeMission(missionId);
+        await commandCenterApi.resumeMission(missionId, 'Guiller');
         setFeedback('La misión se reanudó según sus controles vigentes.');
       } else {
-        await commandCenterApi.cancelMission(missionId);
+        await commandCenterApi.cancelMission(missionId, 'Guiller');
         setFeedback('La misión quedó cancelada junto con su trabajo activo relacionado.');
       }
       await loadMission();
