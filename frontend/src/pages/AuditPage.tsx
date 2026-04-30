@@ -41,11 +41,12 @@ export function AuditPage() {
   return (
     <PageShell title="Auditoría" description="Registro estructurado de acciones, módulos impactados, resultado y severidad para seguimiento operativo y forense.">
       <StatsGrid
-        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3"
+        className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4"
         items={[
           { eyebrow: 'Eventos', title: `${logs.length} registros`, description: 'Volumen actual de eventos persistidos y visibles en el centro de comando.', tone: 'default' },
           { eyebrow: 'Criticidad', title: `${logs.filter((log) => log.severity === 'critical' || log.severity === 'error').length} severos`, description: 'Señales que merecen revisión más inmediata por su impacto operativo o técnico.', tone: 'warning' },
           { eyebrow: 'Trazabilidad', title: 'Línea temporal centralizada', description: 'La auditoría consolida comportamiento del sistema, decisiones y efectos operativos.', tone: 'success' },
+          { eyebrow: 'Gobernanza por espacio', title: `${logs.filter((log) => Boolean(log.payload_summary?.workspaceId)).length} eventos`, description: 'Eventos que ya conservan contexto de espacio y rol operativo.', tone: 'default' },
         ]}
       />
 
@@ -56,11 +57,12 @@ export function AuditPage() {
             <select className="panel-input" value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value)}><option value="all">todas las severidades</option><option value="info">info</option><option value="warning">warning</option><option value="error">error</option><option value="critical">critical</option></select>
           </div>
           <DataTable
-            columns={['Actor', 'Acción', 'Módulo', 'Resultado', 'Severidad', 'Fecha']}
+            columns={['Actor', 'Acción', 'Espacio', 'Rol', 'Resultado', 'Severidad', 'Fecha']}
             rows={filteredLogs.map((log) => [
               <div className="text-sm text-zinc-300">{log.actor}</div>,
               <div className="text-sm font-medium text-white">{log.action}</div>,
-              <div className="text-sm text-zinc-300">{log.module_name}</div>,
+              <div className="text-sm text-zinc-300">{String(log.payload_summary?.workspaceName ?? 'Sin espacio')}</div>,
+              <div className="text-sm text-zinc-300">{formatDisplayText(String(log.payload_summary?.workspaceRole ?? 'sin rol'))}</div>,
               <div className="text-sm text-zinc-300">{formatDisplayText(log.result_status)}</div>,
               <StatusBadge status={log.severity} />,
               <div className="text-sm text-zinc-400">{formatDateTime(log.created_at)}</div>,
@@ -75,6 +77,8 @@ export function AuditPage() {
               ['Evento a revisar', topIssue.action],
               ['Módulo', topIssue.module_name],
               ['Actor', topIssue.actor],
+              ['Espacio', String(topIssue.payload_summary?.workspaceName ?? 'Sin espacio')],
+              ['Rol operativo', formatDisplayText(String(topIssue.payload_summary?.workspaceRole ?? 'sin rol'))],
               ['Severidad', <StatusBadge status={topIssue.severity} />],
               ['Fecha', formatDateTime(topIssue.created_at)],
             ]}
