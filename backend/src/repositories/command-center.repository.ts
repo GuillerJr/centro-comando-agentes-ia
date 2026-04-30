@@ -141,6 +141,11 @@ export const commandCenterRepository = {
     const result = await pool.query('SELECT * FROM ai_approvals ORDER BY created_at DESC');
     return result.rows;
   },
+  async getApprovalsByTaskIds(taskIds: string[]) {
+    if (taskIds.length === 0) return [];
+    const result = await pool.query('SELECT * FROM ai_approvals WHERE task_id = ANY($1::uuid[]) ORDER BY created_at DESC', [taskIds]);
+    return result.rows;
+  },
   async createApproval(payload: any) {
     const result = await pool.query(
       `INSERT INTO ai_approvals (task_id, run_id, approval_type, reason, requested_by, status, payload_summary)

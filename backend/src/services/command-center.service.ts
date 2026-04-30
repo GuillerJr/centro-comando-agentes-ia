@@ -473,7 +473,10 @@ export const commandCenterService = {
   async getMissionById(missionId: string) {
     const mission = await commandCenterRepository.getMissionById(missionId);
     if (!mission) throw new AppError('Mission not found', 404);
-    return mission;
+    const tasks = await commandCenterRepository.getTasks();
+    const missionTasks = tasks.filter((task) => String(task.metadata?.missionId ?? '') === missionId);
+    const approvals = await commandCenterRepository.getApprovalsByTaskIds(missionTasks.map((task) => task.id));
+    return { ...mission, related_tasks: missionTasks, related_approvals: approvals };
   },
   // Crea una misión inicial a partir de un prompt de alto nivel.
   async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string }) {

@@ -123,6 +123,31 @@ export function MissionDetailPage() {
           ])}
         />
       </SectionCard>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <SectionCard title="Tareas relacionadas" subtitle="Trabajo operativo generado desde esta misión.">
+          <DataTable
+            columns={['Título', 'Estado', 'Prioridad']}
+            rows={(mission.related_tasks ?? []).map((task) => [
+              <span className="text-sm font-semibold text-white">{task.title}</span>,
+              <StatusBadge status={task.status} />,
+              <span className="text-sm text-zinc-300">{task.priority}</span>,
+            ])}
+          />
+        </SectionCard>
+
+        <SectionCard title="Aprobaciones relacionadas" subtitle="Bloqueos o controles humanos asociados directamente a esta misión.">
+          <DataTable
+            columns={['Tipo', 'Estado', 'Solicitada por', 'Motivo']}
+            rows={(mission.related_approvals ?? []).map((approval) => [
+              <span className="text-sm font-semibold text-white">{approval.approval_type}</span>,
+              <StatusBadge status={approval.status} />,
+              <span className="text-sm text-zinc-300">{approval.requested_by}</span>,
+              <span className="text-sm text-zinc-300">{approval.reason}</span>,
+            ])}
+          />
+        </SectionCard>
+      </div>
     </PageShell>
   );
 }
