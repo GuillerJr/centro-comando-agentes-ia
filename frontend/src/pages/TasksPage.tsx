@@ -93,7 +93,7 @@ export function TasksPage() {
         setFeedback('La tarea se actualizó sin perder su contexto operativo.');
       } else {
         const createdTask = await commandCenterApi.createTask({ title: parsed.data.title, description: parsed.data.description, priority: parsed.data.priority, taskType: parsed.data.taskType, leadSkillId: null, supportSkillIds: [], status: 'pending', resultSummary: null, logs: null, createdBy: 'Guiller', metadata: { requestedAction: parsed.data.requestedAction } });
-        await commandCenterApi.runTask(createdTask.id, { requestedAction: parsed.data.requestedAction, skillIds: [], executionMode: 'mock' });
+        await commandCenterApi.runTask(createdTask.id, { actorName: 'Guiller', requestedAction: parsed.data.requestedAction, skillIds: [], executionMode: 'mock' });
         setFeedback('La tarea se creó y se envió a ejecución.');
       }
       resetForm();
@@ -162,7 +162,7 @@ export function TasksPage() {
     try {
       setActionError(null);
       setFeedback(null);
-      await commandCenterApi.runTask(task.id, { requestedAction: String(task.metadata?.requestedAction ?? task.title), skillIds: task.support_skill_ids, executionMode: 'cli' });
+      await commandCenterApi.runTask(task.id, { actorName: 'Guiller', requestedAction: String(task.metadata?.requestedAction ?? task.title), skillIds: task.support_skill_ids, executionMode: 'cli' });
       setFeedback('La tarea se volvió a ejecutar.');
       await loadTasks();
     } catch (reason) {

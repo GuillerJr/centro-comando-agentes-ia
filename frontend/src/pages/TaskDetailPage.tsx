@@ -84,6 +84,7 @@ export function TaskDetailPage() {
       setError(null);
       setFeedback(null);
       await commandCenterApi.runTask(task.id, {
+        actorName: 'Guiller',
         requestedAction,
         executionMode: 'cli',
         skillIds: task.support_skill_ids,

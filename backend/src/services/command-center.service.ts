@@ -215,6 +215,26 @@ async function ensureWorkspaceMissionAccess(mission: { metadata?: Record<string,
   return membership;
 }
 
+async function ensureWorkspaceTaskAccess(task: { metadata?: Record<string, unknown> }, actorName: string) {
+  const workspaceId = String(task.metadata?.workspaceId ?? '');
+  if (!workspaceId) return null;
+  const membership = await commandCenterRepository.getWorkspaceMembershipByName(workspaceId, actorName);
+  if (!canOperateWorkspace(membership?.role_key)) {
+    throw new AppError('El actor no tiene permisos operativos para actuar sobre esta tarea dentro del espacio asociado.', 403);
+  }
+  return membership;
+}
+
+async function ensureWorkspaceApprovalAccess(approval: { payload_summary?: Record<string, unknown> }, actorName: string) {
+  const workspaceId = String(approval.payload_summary?.workspaceId ?? '');
+  if (!workspaceId) return null;
+  const membership = await commandCenterRepository.getWorkspaceMembershipByName(workspaceId, actorName);
+  if (!canOperateWorkspace(membership?.role_key)) {
+    throw new AppError('El actor no tiene permisos operativos para actuar sobre esta aprobación dentro del espacio asociado.', 403);
+  }
+  return membership;
+}
+
 function resolvePolicyValue(settings: Array<{ setting_key: string; setting_value: unknown }>, key: string, fallback: boolean) {
   const matched = settings.find((setting) => setting.setting_key === key);
   if (!matched) return fallback;
@@ -887,6 +907,7 @@ export const commandCenterService = {
   },
   async runTask(taskId: string, payload: any) {
     const task = (await this.getTaskById(taskId)) as TaskRecord;
+    const membership = await ensureWorkspaceTaskAccess(task as unknown as { metadata?: Record<string, unknown> }, payload.actorName ?? 'Guiller');
     const traceId = crypto.randomUUID();
     await commandCenterRepository.updateTask(taskId, toTaskUpdatePayload(task, {
       status: 'running',
@@ -924,7 +945,7 @@ export const commandCenterService = {
         logs: JSON.stringify(adapterResult),
         completedAt: new Date().toISOString(),
       }));
-      await commandCenterRepository.createAuditLog({ actor: 'system', action: 'task_run_completed', moduleName: 'runs', payloadSummary: { taskId, runId: run.id }, resultStatus: 'success', severity: 'info' });
+      await commandCenterRepository.createAuditLog({ actor: payload.actorName ?? 'Guiller', action: 'task_run_completed', moduleName: 'runs', payloadSummary: { taskId, runId: run.id, workspaceRole: membership?.role_key ?? null }, resultStatus: 'success', severity: 'info' });
       return updatedRun;
     } catch (error) {
       const durationMs = Date.now() - start;
@@ -942,7 +963,7 @@ export const commandCenterService = {
         logs: message,
         completedAt: new Date().toISOString(),
       }));
-      await commandCenterRepository.createAuditLog({ actor: 'system', action: 'task_run_failed', moduleName: 'runs', payloadSummary: { taskId, runId: run.id, error: message }, resultStatus: 'error', severity: 'error' });
+      await commandCenterRepository.createAuditLog({ actor: payload.actorName ?? 'Guiller', action: 'task_run_failed', moduleName: 'runs', payloadSummary: { taskId, runId: run.id, error: message, workspaceRole: membership?.role_key ?? null }, resultStatus: 'error', severity: 'error' });
       throw new AppError(message, 500);
     }
   },
@@ -999,16 +1020,25 @@ export const commandCenterService = {
     return commandCenterRepository.createApproval(payload);
   },
   async approveApproval(approvalId: string, payload: any) {
+    const currentApproval = await commandCenterRepository.getApprovalById(approvalId);
+    if (!currentApproval) throw new AppError('Approval not found', 404);
+    await ensureWorkspaceApprovalAccess(currentApproval, payload.reviewedBy);
     const approval = await commandCenterRepository.reviewApproval(approvalId, 'approved', payload);
     if (!approval) throw new AppError('Approval not found', 404);
     return approval;
   },
   async rejectApproval(approvalId: string, payload: any) {
+    const currentApproval = await commandCenterRepository.getApprovalById(approvalId);
+    if (!currentApproval) throw new AppError('Approval not found', 404);
+    await ensureWorkspaceApprovalAccess(currentApproval, payload.reviewedBy);
     const approval = await commandCenterRepository.reviewApproval(approvalId, 'rejected', payload);
     if (!approval) throw new AppError('Approval not found', 404);
     return approval;
   },
   async executeApproval(approvalId: string, payload: any) {
+    const currentApproval = await commandCenterRepository.getApprovalById(approvalId);
+    if (!currentApproval) throw new AppError('Approval not found', 404);
+    await ensureWorkspaceApprovalAccess(currentApproval, payload.reviewedBy);
     const existing = await commandCenterRepository.reviewApproval(approvalId, 'approved', payload);
     if (!existing) throw new AppError('Approval not found', 404);
     return commandCenterRepository.markApprovalExecuted(approvalId);

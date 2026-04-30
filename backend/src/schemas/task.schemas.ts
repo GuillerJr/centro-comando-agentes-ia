@@ -23,6 +23,7 @@ export const updateTaskSchema = createTaskSchema.extend({
 
 export const runTaskSchema = z.object({
   agentId: z.string().uuid().nullable().optional(),
+  actorName: z.string().min(2).default('Guiller'),
   requestedAction: z.string().min(3),
   skillIds: z.array(z.string().uuid()).default([]),
   executionMode: z.enum(['mock', 'api', 'cli']).optional(),

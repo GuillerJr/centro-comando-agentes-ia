@@ -39,7 +39,7 @@ export const commandCenterApi = {
   getTask: (taskId: string) => apiRequest<Task>(`/tasks/${taskId}`),
   createTask: (payload: unknown) => apiRequest<Task>('/tasks', { method: 'POST', body: JSON.stringify(payload) }),
   updateTask: (taskId: string, payload: unknown) => apiRequest<Task>(`/tasks/${taskId}`, { method: 'PUT', body: JSON.stringify(payload) }),
-  runTask: (taskId: string, payload: unknown) => apiRequest<TaskRun>(`/tasks/${taskId}/run`, { method: 'POST', body: JSON.stringify(payload) }),
+  runTask: (taskId: string, payload: { agentId?: string | null; actorName?: string; requestedAction: string; skillIds: string[]; executionMode?: 'mock' | 'api' | 'cli' }) => apiRequest<TaskRun>(`/tasks/${taskId}/run`, { method: 'POST', body: JSON.stringify(payload) }),
   cancelTask: (taskId: string) => apiRequest<Task>(`/tasks/${taskId}/cancel`, { method: 'PATCH' }),
   getTaskRuns: (taskId: string) => apiRequest<TaskRun[]>(`/tasks/${taskId}/runs`),
 

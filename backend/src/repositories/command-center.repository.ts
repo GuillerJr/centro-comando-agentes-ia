@@ -142,6 +142,10 @@ export const commandCenterRepository = {
     const result = await pool.query('SELECT * FROM ai_task_runs WHERE task_id = $1 ORDER BY executed_at DESC', [taskId]);
     return result.rows;
   },
+  async getApprovalById(approvalId: string) {
+    const result = await pool.query('SELECT * FROM ai_approvals WHERE id = $1', [approvalId]);
+    return result.rows[0] ?? null;
+  },
   async getApprovals() {
     const result = await pool.query('SELECT * FROM ai_approvals ORDER BY created_at DESC');
     return result.rows;
