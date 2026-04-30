@@ -59,7 +59,7 @@ export function ApprovalsPage() {
   if (isLoading) return <LoadingState label="Cargando aprobaciones..." />;
 
   const filteredApprovals = approvals.filter((approval) => {
-    const matchesSearch = `${approval.approval_type} ${approval.requested_by} ${approval.reason}`.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = `${approval.approval_type} ${approval.requested_by} ${approval.reason} ${approval.mission_title ?? ''} ${approval.task_title ?? ''}`.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || approval.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -90,10 +90,10 @@ export function ApprovalsPage() {
             <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="pending">pending</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="executed">executed</option></select>
           </div>
           <DataTable
-            columns={['Tipo', 'Solicitado por', 'Estado', 'Motivo', 'Payload', 'Acciones']}
+            columns={['Tipo', 'Misión', 'Estado', 'Motivo', 'Payload', 'Acciones']}
             rows={filteredApprovals.map((approval) => [
               <div className="text-sm font-medium text-white">{formatDisplayText(approval.approval_type)}</div>,
-              <div className="text-sm text-zinc-300">{approval.requested_by}</div>,
+              <div><div className="text-sm text-zinc-300">{approval.mission_title ?? 'Sin misión enlazada'}</div><div className="mt-1 text-xs text-zinc-500">{approval.task_title ?? approval.requested_by}</div></div>,
               <StatusBadge status={approval.status} />,
               <div className="text-sm leading-6 text-zinc-400">{approval.reason}</div>,
               <pre className="max-w-[16rem] overflow-x-auto whitespace-pre-wrap text-[11px] text-zinc-500">{formatValue(approval.payload_summary)}</pre>,
@@ -107,8 +107,10 @@ export function ApprovalsPage() {
             columns={['Campo', 'Valor']}
             rows={[
               ['Último tipo', formatDisplayText(latestApproval.approval_type)],
+              ['Misión', latestApproval.mission_title ?? 'Sin misión enlazada'],
               ['Solicitante', latestApproval.requested_by],
               ['Estado', <StatusBadge status={latestApproval.status} />],
+              ['Estado de misión', latestApproval.mission_status ? <StatusBadge status={latestApproval.mission_status} /> : 'Sin misión'],
               ['Notas', <div className="text-sm leading-6 text-zinc-400">{latestApproval.execution_notes ?? 'Sin notas todavía'}</div>],
               ['Payload', <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-zinc-300">{formatValue(latestApproval.payload_summary)}</pre>],
             ]}

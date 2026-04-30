@@ -792,7 +792,23 @@ export const commandCenterService = {
     return commandCenterRepository.getTaskRuns(taskId);
   },
   async listApprovals() {
-    return commandCenterRepository.getApprovals();
+    const [approvals, tasks, missions] = await Promise.all([
+      commandCenterRepository.getApprovals(),
+      commandCenterRepository.getTasks(),
+      commandCenterRepository.getMissions(),
+    ]);
+    return approvals.map((approval) => {
+      const task = tasks.find((item) => item.id === approval.task_id) ?? null;
+      const missionId = String(task?.metadata?.missionId ?? '');
+      const mission = missions.find((item) => item.id === missionId) ?? null;
+      return {
+        ...approval,
+        mission_id: mission?.id ?? null,
+        mission_title: mission?.title ?? null,
+        mission_status: mission?.status ?? null,
+        task_title: task?.title ?? null,
+      };
+    });
   },
   async createApproval(payload: any) {
     return commandCenterRepository.createApproval(payload);
