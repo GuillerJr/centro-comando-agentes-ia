@@ -147,10 +147,10 @@ export function SettingsPage() {
         ]}
       />
 
-      <SectionCard title="Políticas base de misión" subtitle="Estas claves gobiernan riesgo, aprobación y bloqueo preventivo dentro de Mission Control.">
+      <SectionCard title="Políticas base de misión" subtitle="Estas claves gobiernan riesgo, aprobación y bloqueo preventivo dentro de Mission Control. Si faltan, el backend crea automáticamente el set recomendado.">
         <DataTable
           columns={['Política', 'Valor', 'Lectura']}
-          rows={(policies.length > 0 ? policies : [{ id: 'sin-politicas', setting_key: 'Sin políticas configuradas', setting_value: 'Usando defaults internos', category: 'security', is_sensitive: false, description: 'Mission Control usa aprobación por riesgo alto y bloqueo preventivo de shell.' } as SystemSetting]).map((setting) => [
+          rows={(policies.length > 0 ? policies : [{ id: 'sin-politicas', setting_key: 'Sin políticas configuradas', setting_value: 'Usando defaults internos', category: 'security', is_sensitive: false, description: 'Mission Control usa aprobación por riesgo alto, bloqueo preventivo de shell y sandbox inicial.' } as SystemSetting]).map((setting) => [
             <span className="text-sm font-semibold text-white">{setting.setting_key}</span>,
             <span className="text-sm text-zinc-300">{renderSettingValue(setting)}</span>,
             <span className="text-sm text-zinc-400">{setting.description}</span>,

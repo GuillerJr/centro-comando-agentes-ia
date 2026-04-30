@@ -173,6 +173,30 @@ function buildMissionPlan(prompt: string) {
   ];
 }
 
+const defaultPolicySettings = [
+  {
+    settingKey: 'politica.aprobacion_riesgo_alto',
+    settingValue: true,
+    category: 'security',
+    isSensitive: false,
+    description: 'Exige aprobación humana para misiones con riesgo alto o crítico.',
+  },
+  {
+    settingKey: 'politica.bloquear_shell_sin_aprobacion',
+    settingValue: true,
+    category: 'security',
+    isSensitive: false,
+    description: 'Bloquea misiones que intentan ejecutar comandos sin aprobación explícita.',
+  },
+  {
+    settingKey: 'politica.forzar_sandbox_por_defecto',
+    settingValue: true,
+    category: 'security',
+    isSensitive: false,
+    description: 'Propone sandbox como modo inicial al crear una nueva misión.',
+  },
+];
+
 function resolvePolicyValue(settings: Array<{ setting_key: string; setting_value: unknown }>, key: string, fallback: boolean) {
   const matched = settings.find((setting) => setting.setting_key === key);
   if (!matched) return fallback;
@@ -959,6 +983,12 @@ export const commandCenterService = {
     return commandCenterRepository.getMcpTools();
   },
   async listSystemSettings() {
+    const settings = await commandCenterRepository.getSystemSettings();
+    for (const policy of defaultPolicySettings) {
+      if (!settings.find((setting) => setting.setting_key === policy.settingKey)) {
+        await commandCenterRepository.createSystemSetting(policy);
+      }
+    }
     return commandCenterRepository.getSystemSettings();
   },
   async createSystemSetting(payload: any) {
