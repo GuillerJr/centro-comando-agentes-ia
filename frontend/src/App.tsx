@@ -8,6 +8,7 @@ const AuditPage = lazy(() => import('./pages/AuditPage').then((module) => ({ def
 const CommandConsolePage = lazy(() => import('./pages/CommandConsolePage').then((module) => ({ default: module.CommandConsolePage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
 const McpPage = lazy(() => import('./pages/McpPage').then((module) => ({ default: module.McpPage })));
+const MissionDetailPage = lazy(() => import('./pages/MissionDetailPage').then((module) => ({ default: module.MissionDetailPage })));
 const MissionsPage = lazy(() => import('./pages/MissionsPage').then((module) => ({ default: module.MissionsPage })));
 const OfficeDesignPage = lazy(() => import('./pages/OfficeDesignPage').then((module) => ({ default: module.OfficeDesignPage })));
 const RunsPage = lazy(() => import('./pages/RunsPage').then((module) => ({ default: module.RunsPage })));
@@ -56,6 +57,7 @@ export function App() {
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/office-design" element={<OfficeDesignPage />} />
                 <Route path="/missions" element={<MissionsPage />} />
+                <Route path="/missions/:missionId" element={<MissionDetailPage />} />
                 <Route path="/agents" element={<AgentsPage />} />
                 <Route path="/skills" element={<SkillsPage />} />
                 <Route path="/tasks" element={<TasksPage />} />

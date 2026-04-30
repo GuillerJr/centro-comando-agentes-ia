@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
 import { Input } from '../components/input';
@@ -93,7 +94,7 @@ export function MissionsPage() {
             <StatusBadge status={mission.risk_level} />,
             <span className="text-sm text-zinc-300">{mission.estimated_steps}</span>,
             <ChipGroup items={mission.sensitive_actions} emptyLabel="Sin acciones sensibles" />,
-            <div className="flex flex-wrap gap-2"><Button size="sm" onClick={() => void handleStartMission(mission.id)} disabled={mission.status !== 'planned'}>{mission.status === 'planned' ? 'Iniciar misión' : 'En seguimiento'}</Button></div>,
+            <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link><Button size="sm" onClick={() => void handleStartMission(mission.id)} disabled={mission.status !== 'planned'}>{mission.status === 'planned' ? 'Iniciar misión' : 'En seguimiento'}</Button></div>,
           ])}
         />
       </SectionCard>
