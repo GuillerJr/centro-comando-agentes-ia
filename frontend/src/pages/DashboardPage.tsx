@@ -1,34 +1,17 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Cpu, Siren, Waypoints } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { commandCenterApi } from '../api/commandCenterApi';
 import { Button } from '../components/button';
-import {
-  DataTable,
-  EmptyState,
-  ErrorState,
-  formatDisplayText,
-  formatDuration,
-  InfoPanel,
-  LoadingState,
-  MetricCard,
-  MetricPill,
-  PageShell,
-  SectionCard,
-  StatsGrid,
-  StatusBadge,
-} from '../components/ui';
+import { DataTable, EmptyState, ErrorState, formatDisplayText, formatDuration, LoadingState, MetricCard, MetricPill, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import type { DashboardData } from '../types/domain';
 
-function metricProgress(value: number, total: number) {
-  if (total <= 0) return 12;
-  return Math.max(12, Math.min(100, Math.round((value / total) * 100)));
-}
-
 export function DashboardPage() {
+  const navigate = useNavigate();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Carga la vista principal del centro de mando con foco en misiones y gobernanza.
   const loadDashboard = async () => {
     try {
       setIsLoading(true);
@@ -46,158 +29,73 @@ export function DashboardPage() {
   }, []);
 
   if (error) return <ErrorState message={error} action={<Button onClick={() => void loadDashboard()}>Reintentar</Button>} />;
-  if (isLoading) return <LoadingState label="Cargando centro de comando..." />;
-  if (!dashboard) return <EmptyState title="Sin panel disponible" description="No se recibió un estado consolidado del centro de comando para este entorno." action={<Button onClick={() => void loadDashboard()}>Actualizar</Button>} />;
-
-  const latestAlerts = dashboard.alerts.slice(0, 4);
-  const totalTracked =
-    dashboard.metrics.active_agents +
-    dashboard.metrics.running_tasks +
-    dashboard.metrics.completed_tasks +
-    dashboard.metrics.pending_approvals;
+  if (isLoading) return <LoadingState label="Cargando Mission Control..." />;
+  if (!dashboard) return <EmptyState title="Sin panel disponible" description="No se recibió un estado consolidado del centro de mando para este entorno." action={<Button onClick={() => void loadDashboard()}>Actualizar</Button>} />;
 
   return (
     <PageShell
-      title="Panel general"
-      description="Vista ejecutiva del centro de comando con capacidad, riesgos, aprobaciones y salud de plataforma en una sola superficie operativa."
+      title="Mission Control"
+      description="Centro operativo para planificar misiones, revisar bloqueos, gobernar acciones sensibles y supervisar la ejecución conectada con OpenClaw."
       action={
         <div className="flex flex-wrap gap-2">
-          <MetricPill label="Conexión" value={dashboard.connectionStatus} tone={dashboard.connectionStatus === 'connected' ? 'success' : 'info'} />
+          <MetricPill label="Conexión" value={dashboard.connectionStatus} tone={dashboard.connectionStatus === 'connected' ? 'success' : 'warning'} />
           <MetricPill label="Modo" value={String(dashboard.openClawStatus.mode)} tone="default" />
         </div>
       }
     >
       <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Button variant="secondary" onClick={() => { window.location.href = '/tasks'; }}>Ir a tareas</Button>
-        <Button variant="secondary" onClick={() => { window.location.href = '/approvals'; }}>Revisar aprobaciones</Button>
-        <Button variant="secondary" onClick={() => { window.location.href = '/runs'; }}>Ver ejecuciones</Button>
-        <Button variant="secondary" onClick={() => { window.location.href = '/office'; }}>Abrir oficina</Button>
+        <Button variant="secondary" onClick={() => navigate('/missions')}>Ir a misiones</Button>
+        <Button variant="secondary" onClick={() => navigate('/approvals')}>Revisar aprobaciones</Button>
+        <Button variant="secondary" onClick={() => navigate('/runs')}>Ver ejecuciones</Button>
+        <Button variant="secondary" onClick={() => navigate('/office-design')}>Abrir oficina</Button>
       </div>
 
       <div className="metric-grid">
-        <MetricCard label="Agentes activos" value={dashboard.metrics.active_agents} helper="Agentes disponibles para orquestar y ejecutar trabajo." trend="activo" />
-        <MetricCard label="Tareas en curso" value={dashboard.metrics.running_tasks} helper="Carga actual del sistema en tiempo real." trend={`${dashboard.metrics.running_tasks || 0}`} />
-        <MetricCard label="Tareas completadas" value={dashboard.metrics.completed_tasks} helper="Trabajo resuelto con trazabilidad operativa." trend="ok" />
-        <MetricCard label="Aprobaciones pendientes" value={dashboard.metrics.pending_approvals} helper="Puntos de control esperando decisión humana." trend={dashboard.metrics.pending_approvals > 0 ? 'revisar' : 'estable'} />
+        <MetricCard label="Misiones registradas" value={dashboard.missionMetrics.total} helper="Volumen total de misiones visibles en el centro de mando." trend="mando" />
+        <MetricCard label="Misiones planificadas" value={dashboard.missionMetrics.planned} helper="Trabajo listo para revisión humana antes de iniciar ejecución." trend="listas" />
+        <MetricCard label="Misiones activas" value={dashboard.missionMetrics.running} helper="Misiones que ya están empujando trabajo al plano operativo." trend="en curso" />
+        <MetricCard label="Misiones bloqueadas" value={dashboard.missionMetrics.blocked} helper="Misiones detenidas por aprobación, pausa o bloqueo operativo." trend={dashboard.missionMetrics.blocked > 0 ? 'revisar' : 'estable'} />
       </div>
 
       <StatsGrid
-        className="summary-grid"
+        className="grid gap-5 md:grid-cols-2 xl:grid-cols-4"
         items={[
-          {
-            eyebrow: 'Estado general',
-            title: dashboard.connectionStatus === 'connected' ? 'Operación estable' : 'Conectividad degradada',
-            description: dashboard.connectionStatus === 'connected' ? 'La capa principal de ejecución está respondiendo y el tablero puede coordinar trabajo.' : 'Conviene revisar conectividad antes de disparar nuevas operaciones críticas.',
-            tone: dashboard.connectionStatus === 'connected' ? 'success' : 'warning',
-          },
-          {
-            eyebrow: 'Carga',
-            title: `${dashboard.metrics.running_tasks + dashboard.metrics.pending_approvals} frentes abiertos`,
-            description: 'Suma de tareas activas y decisiones humanas pendientes para leer la presión operativa actual.',
-            tone: dashboard.metrics.running_tasks > 0 || dashboard.metrics.pending_approvals > 0 ? 'warning' : 'default',
-          },
-          {
-            eyebrow: 'Extensibilidad',
-            title: `${dashboard.metrics.connected_mcp_servers} servicios conectados`,
-            description: 'Integraciones disponibles para expandir acciones del centro de comando sin salir del tablero.',
-            tone: dashboard.metrics.connected_mcp_servers > 0 ? 'success' : 'default',
-          },
+          { eyebrow: 'Riesgo', title: `${dashboard.missionMetrics.critical} críticas`, description: 'Misiones que exigen supervisión, aprobación o máxima cautela.', tone: dashboard.missionMetrics.critical > 0 ? 'danger' : 'success' },
+          { eyebrow: 'Aprobaciones', title: `${dashboard.metrics.pending_approvals} pendientes`, description: 'Controles humanos esperando decisión para permitir avanzar trabajo sensible.', tone: dashboard.metrics.pending_approvals > 0 ? 'warning' : 'default' },
+          { eyebrow: 'Agentes', title: `${dashboard.metrics.active_agents} activos`, description: 'Capacidad disponible en la red de agentes para seguir absorbiendo trabajo.', tone: 'success' },
+          { eyebrow: 'Integraciones', title: `${dashboard.metrics.connected_mcp_servers} conectadas`, description: 'Servicios y herramientas disponibles para ampliar la ejecución.', tone: 'default' },
         ]}
       />
 
-      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-        <SectionCard title="Panorama operativo" subtitle="Lectura ejecutiva de capacidad, riesgo y extensibilidad del centro de mando.">
-          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="panel-card p-4">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Salud del runtime</p>
-                  <h4 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                    {dashboard.connectionStatus === 'connected' ? 'OpenClaw sincronizado' : 'Revisar conexión'}
-                  </h4>
-                  <p className="mt-2 max-w-xl text-sm leading-7 text-zinc-400">
-                    Estado operacional del runtime, eventos críticos y nivel actual de cobertura para la red de agentes.
-                  </p>
-                </div>
-
-                <div className="w-full lg:w-[16rem]">
-                  <InfoPanel
-                    eyebrow="Entorno"
-                    title={dashboard.connectionStatus === 'connected' ? 'Conectado' : 'Atención requerida'}
-                    description="Integración principal disponible para operación."
-                    tone={dashboard.connectionStatus === 'connected' ? 'success' : 'warning'}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {[
-                  {
-                    label: 'Agentes en línea',
-                    value: dashboard.metrics.active_agents,
-                    icon: Cpu,
-                    color: 'from-sky-500 to-cyan-400',
-                  },
-                  {
-                    label: 'Alertas críticas',
-                    value: dashboard.metrics.critical_alerts,
-                    icon: Siren,
-                    color: 'from-rose-500 to-orange-400',
-                  },
-                  {
-                    label: 'MCP conectados',
-                    value: dashboard.metrics.connected_mcp_servers,
-                    icon: Waypoints,
-                    color: 'from-emerald-500 to-teal-400',
-                  },
-                ].map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <div key={item.label} className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className={`flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br ${item.color} text-white`}>
-                          <Icon className="h-5 w-5" />
-                        </div>
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">activo</span>
-                      </div>
-                      <p className="mt-4 text-2xl font-semibold tracking-tight text-white">{item.value}</p>
-                      <p className="mt-1 text-sm text-zinc-400">{item.label}</p>
-                      <div className="mt-4 h-2 rounded-full bg-white/6">
-                        <div className={`h-2 rounded-full bg-gradient-to-r ${item.color}`} style={{ width: `${metricProgress(item.value, totalTracked)}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              <InfoPanel eyebrow="Riesgo" title={`${dashboard.metrics.critical_alerts} alertas críticas`} description="Eventos de mayor severidad que merecen revisión prioritaria." tone={dashboard.metrics.critical_alerts > 0 ? 'danger' : 'success'} />
-              <InfoPanel eyebrow="Aprobaciones" title={`${dashboard.metrics.pending_approvals} pendientes`} description="Acciones sensibles esperando confirmación explícita." tone={dashboard.metrics.pending_approvals > 0 ? 'warning' : 'default'} />
-              <InfoPanel eyebrow="Cobertura" title={`${dashboard.mcpServers.length} nodos de plataforma`} description="Servidores MCP y piezas de plataforma observables." tone="default" />
-            </div>
-          </div>
+      <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
+        <SectionCard title="Cola principal de misiones" subtitle="Lectura prioritaria del trabajo estratégico que gobierna Mission Control.">
+          <DataTable
+            columns={['Misión', 'Estado', 'Riesgo', 'Aprobación', 'Pasos']}
+            rows={dashboard.missions.map((mission) => [
+              <div className="max-w-md"><p className="text-sm font-semibold text-white">{mission.title}</p><p className="mt-1 text-xs text-zinc-500">{mission.summary}</p></div>,
+              <StatusBadge status={mission.status} />,
+              <StatusBadge status={mission.risk_level} />,
+              <span className="text-sm text-zinc-300">{mission.requires_approval ? 'Requerida' : 'No requerida'}</span>,
+              <span className="text-sm text-zinc-300">{mission.estimated_steps}</span>,
+            ])}
+          />
         </SectionCard>
 
-        <SectionCard title="Estado de plataforma" subtitle="Lectura técnica rápida del runtime y la capa operativa.">
-          <div className="rounded-[20px] border border-white/8 bg-black/20 p-4 text-zinc-200">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-500">Estado del sistema</p>
-                <p className="mt-1 text-lg font-semibold text-white">{formatDisplayText(String(dashboard.openClawStatus.state ?? 'Desconocido'))}</p>
-              </div>
-              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
-            </div>
-            <pre className="scrollbar-dark overflow-x-auto whitespace-pre-wrap rounded-[18px] border border-white/8 bg-black/30 p-4 text-xs leading-6 text-zinc-300">
-              {JSON.stringify(dashboard.openClawStatus, null, 2)}
-            </pre>
-          </div>
+        <SectionCard title="Panorama de control" subtitle="Indicadores directos para decidir si conviene iniciar más trabajo o contener la operación.">
+          <DataTable
+            columns={['Indicador', 'Valor', 'Lectura']}
+            rows={[
+              ['Misiones en espera de aprobación', dashboard.missions.filter((mission) => mission.status === 'waiting_for_approval').length, 'Trabajo frenado hasta recibir autorización humana.'],
+              ['Tareas en curso', dashboard.metrics.running_tasks, 'Carga de ejecución real actualmente corriendo debajo del centro de mando.'],
+              ['Alertas críticas', dashboard.metrics.critical_alerts, 'Señales severas que exigen revisión antes de abrir nuevos frentes.'],
+              ['Runtime OpenClaw', formatDisplayText(String(dashboard.openClawStatus.state ?? 'desconocido')), 'Estado más reciente del motor operativo conectado.'],
+            ]}
+          />
         </SectionCard>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[1.08fr_0.92fr]">
-        <SectionCard title="Últimas ejecuciones" subtitle="Ejecuciones recientes con foco en trazabilidad y lectura rápida.">
+      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
+        <SectionCard title="Últimas ejecuciones" subtitle="Señales rápidas del plano de ejecución para validar throughput y estabilidad.">
           <DataTable
             columns={['Traza', 'Estado', 'Modo', 'Acción', 'Duración']}
             rows={dashboard.latestRuns.map((run) => [
@@ -205,86 +103,24 @@ export function DashboardPage() {
               <StatusBadge status={run.status} />,
               <span className="text-sm text-zinc-300">{formatDisplayText(run.execution_mode)}</span>,
               <span className="max-w-xs text-sm leading-6 text-zinc-300">{run.requested_action}</span>,
-               run.duration_ms ? formatDuration(run.duration_ms) : 'En curso',
+              run.duration_ms ? formatDuration(run.duration_ms) : 'En curso',
             ])}
           />
         </SectionCard>
 
-        <SectionCard title="Alertas recientes" subtitle="Riesgos, módulos impactados y severidad operativa visible.">
-          {latestAlerts.length === 0 ? (
-            <div className="rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 p-4">
-              <p className="text-sm font-semibold text-emerald-300">No hay alertas críticas ahora mismo.</p>
-              <p className="mt-1 text-sm leading-6 text-emerald-200/80">La auditoría no reporta señales severas en este momento.</p>
-            </div>
-          ) : (
-            <DataTable
-              columns={['Acción', 'Módulo', 'Severidad', 'Actor', 'Resultado']}
-              rows={latestAlerts.map((alert) => [alert.action, alert.module_name, <StatusBadge status={alert.severity} />, alert.actor, formatDisplayText(alert.result_status)])}
-            />
-          )}
-        </SectionCard>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-        <SectionCard title="Balance de ejecución" subtitle="Distribución útil para lectura táctica del flujo actual.">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {[
-              {
-                label: 'Completadas',
-                value: dashboard.metrics.completed_tasks,
-                color: 'from-emerald-500 to-teal-400',
-              },
-              {
-                label: 'En curso',
-                value: dashboard.metrics.running_tasks,
-                color: 'from-sky-500 to-cyan-400',
-              },
-              {
-                label: 'Aprobaciones',
-                value: dashboard.metrics.pending_approvals,
-                color: 'from-amber-500 to-orange-400',
-              },
-              {
-                label: 'Críticas',
-                value: dashboard.metrics.critical_alerts,
-                color: 'from-rose-500 to-pink-400',
-              },
-            ].map((item) => (
-              <div key={item.label} className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-medium text-zinc-400">{item.label}</p>
-                </div>
-                <p className="mt-4 text-3xl font-semibold tracking-tight text-white">{item.value}</p>
-                <div className="mt-4 h-2 rounded-full bg-white/6">
-                  <div className={`h-2 rounded-full bg-gradient-to-r ${item.color}`} style={{ width: `${metricProgress(item.value, totalTracked)}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Señales de plataforma" subtitle="Indicadores compactos de preparación, settings y servidores conectados.">
+        <SectionCard title="Alertas recientes" subtitle="Eventos de mayor severidad visibles desde auditoría y gobernanza.">
           <DataTable
-            columns={['Indicador', 'Valor', 'Lectura']}
-            rows={[
-              ['Alertas críticas', dashboard.metrics.critical_alerts, 'Señales de alta prioridad detectadas por auditoría.'],
-              ['Configuraciones cargadas', dashboard.settings.length, 'Parámetros persistidos activos en esta instancia.'],
-              ['Servidores MCP', dashboard.mcpServers.length, 'Nodos listos para integraciones futuras.'],
-            ]}
+            columns={['Acción', 'Módulo', 'Severidad', 'Actor', 'Resultado']}
+            rows={dashboard.alerts.map((alert) => [
+              alert.action,
+              alert.module_name,
+              <StatusBadge status={alert.severity} />,
+              alert.actor,
+              formatDisplayText(alert.result_status),
+            ])}
           />
         </SectionCard>
       </div>
-
-      <SectionCard title="Servicios conectados" subtitle="Estado resumido de servidores MCP registrados en el entorno actual.">
-        {dashboard.mcpServers.length === 0 ? (
-          <EmptyState title="Sin servicios conectados" description="Todavía no hay servidores MCP visibles para este entorno operativo." />
-        ) : (
-          <DataTable
-            columns={['Servidor', 'Transporte', 'Estado', 'Acciones permitidas']}
-            rows={dashboard.mcpServers.map((server) => [server.name, formatDisplayText(server.transport_type), <StatusBadge status={server.status} />, <div className="text-xs text-zinc-400">{server.allowed_actions.slice(0, 3).map((action) => formatDisplayText(action)).join(', ') || 'Sin acciones declaradas'}</div>])}
-          />
-        )}
-      </SectionCard>
     </PageShell>
   );
 }

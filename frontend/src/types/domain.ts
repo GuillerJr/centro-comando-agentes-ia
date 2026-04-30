@@ -10,6 +10,14 @@ export type DashboardData = {
     critical_alerts: number;
     connected_mcp_servers: number;
   };
+  missionMetrics: {
+    total: number;
+    planned: number;
+    running: number;
+    blocked: number;
+    critical: number;
+  };
+  missions: Mission[];
   latestRuns: TaskRun[];
   alerts: AuditLog[];
   openClawStatus: { mode: string; state: string; details?: unknown };

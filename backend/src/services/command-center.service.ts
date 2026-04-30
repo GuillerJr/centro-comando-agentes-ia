@@ -586,17 +586,28 @@ export const commandCenterService = {
     return results.slice(0, 20);
   },
   async getDashboard() {
-    const [metrics, latestRuns, auditLogs, openClawStatus, settings, mcpServers] = await Promise.all([
+    const [metrics, latestRuns, auditLogs, openClawStatus, settings, mcpServers, missions] = await Promise.all([
       commandCenterRepository.getDashboardMetrics(),
       commandCenterRepository.getRuns(),
       commandCenterRepository.getAuditLogs(),
       adapter.getStatus().catch(() => ({ mode: env.openClawMode, state: 'disconnected' })),
       commandCenterRepository.getSystemSettings(),
       commandCenterRepository.getMcpServers(),
+      commandCenterRepository.getMissions(),
     ]);
+
+    const missionMetrics = {
+      total: missions.length,
+      planned: missions.filter((mission) => mission.status === 'planned').length,
+      running: missions.filter((mission) => mission.status === 'running').length,
+      blocked: missions.filter((mission) => ['waiting_for_approval', 'blocked', 'paused'].includes(mission.status)).length,
+      critical: missions.filter((mission) => mission.risk_level === 'critical').length,
+    };
 
     return {
       metrics,
+      missionMetrics,
+      missions: missions.slice(0, 6),
       latestRuns: latestRuns.slice(0, 5),
       alerts: auditLogs.filter((log: { severity: string }) => ['error', 'critical'].includes(log.severity)).slice(0, 5),
       openClawStatus,
