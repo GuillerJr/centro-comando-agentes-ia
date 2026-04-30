@@ -12,6 +12,7 @@ export const createMissionSchema = z.object({
   prompt: z.string().min(12, 'La misión debe explicar mejor el objetivo.'),
   createdBy: z.string().min(2).default('Guiller'),
   priority: z.enum(['low', 'medium', 'high', 'critical']).default('medium'),
+  sandbox: z.boolean().default(true),
 });
 
 // Valida el cuerpo editable del plan antes de iniciar una misión.

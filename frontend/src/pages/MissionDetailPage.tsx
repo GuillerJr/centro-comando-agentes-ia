@@ -131,6 +131,7 @@ export function MissionDetailPage() {
               ['Aprobación requerida', <span className="text-sm text-zinc-300">{mission.requires_approval ? 'Sí' : 'No'}</span>],
               ['Acciones sensibles', <ChipGroup items={mission.sensitive_actions} emptyLabel="Sin acciones sensibles" />],
               ['Permisos requeridos', <ChipGroup items={mission.required_permissions} emptyLabel="Sin permisos especiales" />],
+              ['Modo de ejecución', <div className="text-sm text-zinc-300">{(mission.metadata as any)?.sandbox ? 'Sandbox' : 'Real'}</div>],
               ['Decisión de política', <div className="text-sm text-zinc-300">{String((mission.metadata as any)?.decisionesPolitica?.bloqueaPorPolitica ? 'Bloqueada por política preventiva' : 'Sin bloqueo preventivo')}</div>],
             ]}
           />

@@ -16,6 +16,7 @@ export function MissionsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [priority, setPriority] = useState('medium');
+  const [sandbox, setSandbox] = useState(true);
 
   // Carga la bandeja principal de misiones disponibles para operación.
   const loadMissions = async () => {
@@ -41,10 +42,11 @@ export function MissionsPage() {
       setIsSubmitting(true);
       setError(null);
       setFeedback(null);
-      await commandCenterApi.createMission({ prompt, createdBy: 'Guiller', priority });
-      setFeedback('La misión se creó y quedó lista para revisión.');
+      await commandCenterApi.createMission({ prompt, createdBy: 'Guiller', priority, sandbox });
+      setFeedback(`La misión se creó en modo ${sandbox ? 'sandbox' : 'ejecución real'} y quedó lista para revisión.`);
       setPrompt('');
       setPriority('medium');
+      setSandbox(true);
       setIsModalOpen(false);
       await loadMissions();
     } catch (reason) {
@@ -104,12 +106,12 @@ export function MissionsPage() {
 
       <SectionCard title="Nueva misión" subtitle="Convierte una instrucción natural en un plan estructurado, con riesgo, pasos y control humano." action={<Button onClick={() => setIsModalOpen(true)}>Nueva misión</Button>}>
         <DataTable
-          columns={['Título', 'Estado', 'Riesgo', 'Pasos', 'Acciones sensibles', 'Acciones']}
+          columns={['Título', 'Estado', 'Riesgo', 'Modo', 'Acciones sensibles', 'Acciones']}
           rows={missions.map((mission) => [
             <div className="max-w-md"><p className="text-sm font-semibold text-white">{mission.title}</p><p className="mt-1 text-xs text-zinc-500">{mission.summary}</p></div>,
             <StatusBadge status={mission.status} />,
             <StatusBadge status={mission.risk_level} />,
-            <span className="text-sm text-zinc-300">{mission.estimated_steps}</span>,
+            <span className="text-sm text-zinc-300">{(mission.metadata as Record<string, unknown> | undefined)?.sandbox ? 'Sandbox' : 'Real'}</span>,
             <ChipGroup items={mission.sensitive_actions} emptyLabel="Sin acciones sensibles" />,
             <div className="flex flex-wrap gap-2"><Link className="text-blue-300 hover:text-blue-200" to={`/missions/${mission.id}`}>Ver detalle</Link>{mission.status === 'planned' ? <Button size="sm" onClick={() => void handleStartMission(mission.id)}>Iniciar misión</Button> : null}{mission.status === 'running' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'pause')}>Pausar</Button> : null}{mission.status === 'paused' || mission.status === 'waiting_for_approval' || mission.status === 'blocked' ? <Button size="sm" variant="secondary" onClick={() => void handleMissionState(mission.id, 'resume')}>Reanudar</Button> : null}</div>,
           ])}
@@ -140,6 +142,7 @@ export function MissionsPage() {
               <option value="critical">crítica</option>
             </select>
           </FormField>
+          <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-zinc-200"><input type="checkbox" checked={sandbox} onChange={(event) => setSandbox(event.target.checked)} />Crear en modo sandbox</label>
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={isSubmitting || prompt.trim().length < 12}>{isSubmitting ? 'Creando...' : 'Crear misión'}</Button>
             <Button type="button" variant="secondary" onClick={() => setIsModalOpen(false)}>Cancelar</Button>

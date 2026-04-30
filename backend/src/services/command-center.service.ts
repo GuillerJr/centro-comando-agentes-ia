@@ -486,7 +486,7 @@ export const commandCenterService = {
     return { ...mission, related_tasks: missionTasks, related_approvals: approvals };
   },
   // Crea una misión inicial a partir de un prompt de alto nivel.
-  async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string }) {
+  async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean }) {
     const riskLevel = detectRiskLevel(payload.prompt);
     const sensitiveActions = detectSensitiveActions(payload.prompt);
     const [agents, settings] = await Promise.all([
@@ -507,14 +507,14 @@ export const commandCenterService = {
       riskLevel,
       assignedAgentId: assignedAgent?.id ?? null,
       createdBy: payload.createdBy,
-      summary: bloqueaPorPolitica ? 'La misión quedó bloqueada por política de shell sin aprobación.' : 'Misión estructurada y pendiente de confirmación del operador.',
+      summary: bloqueaPorPolitica ? 'La misión quedó bloqueada por política de shell sin aprobación.' : payload.sandbox ? 'Misión estructurada en modo sandbox, sin ejecutar acciones reales hasta nueva decisión.' : 'Misión estructurada y pendiente de confirmación del operador.',
       estimatedSteps: 4,
       requiresApproval,
       sensitiveActions,
       requiredIntegrations: [],
       requiredPermissions: requiresApproval ? ['aprobación_humana'] : [],
       plan: buildMissionPlan(payload.prompt),
-      metadata: { promptOriginal: payload.prompt, origen: 'mission_control', decisionesPolitica: { requireApprovalHighRisk, blockShellCommands, bloqueaPorPolitica } },
+      metadata: { promptOriginal: payload.prompt, origen: 'mission_control', sandbox: payload.sandbox, decisionesPolitica: { requireApprovalHighRisk, blockShellCommands, bloqueaPorPolitica } },
     });
     await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_created', moduleName: 'missions', payloadSummary: { missionId: created.id, riskLevel }, resultStatus: 'success', severity: 'info' });
     return created;
@@ -560,7 +560,7 @@ export const commandCenterService = {
       resultSummary: null,
       logs: null,
       createdBy: mission.created_by,
-      metadata: { missionId: mission.id, requestedAction: mission.objective },
+      metadata: { missionId: mission.id, requestedAction: mission.objective, sandbox: Boolean((mission.metadata as Record<string, unknown>)?.sandbox) },
     });
     if (mission.requires_approval) {
       await commandCenterRepository.createApproval({
