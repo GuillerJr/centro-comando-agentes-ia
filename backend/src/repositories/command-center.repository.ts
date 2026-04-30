@@ -234,6 +234,17 @@ export const commandCenterRepository = {
     const result = await pool.query('SELECT * FROM ai_workspaces WHERE id = $1', [workspaceId]);
     return result.rows[0] ?? null;
   },
+  async getWorkspaceMembershipByName(workspaceId: string, displayName: string) {
+    const result = await pool.query(
+      `SELECT membership.*, app_user.display_name, app_user.email, app_user.status AS user_status
+       FROM ai_workspace_memberships membership
+       INNER JOIN ai_users app_user ON app_user.id = membership.user_id
+       WHERE membership.workspace_id = $1 AND LOWER(app_user.display_name) = LOWER($2)
+       LIMIT 1`,
+      [workspaceId, displayName],
+    );
+    return result.rows[0] ?? null;
+  },
   async getWorkspaceMemberships() {
     const result = await pool.query(
       `SELECT membership.id, membership.workspace_id, membership.user_id, membership.role_key, membership.created_at,

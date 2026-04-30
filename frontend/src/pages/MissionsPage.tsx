@@ -100,6 +100,9 @@ export function MissionsPage() {
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => void loadMissions()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando misiones..." />;
 
+  const selectedWorkspace = workspaces.find((workspace) => workspace.id === workspaceId) ?? null;
+  const selectedWorkspaceRole = selectedWorkspace?.memberships?.find((membership) => membership.display_name.toLowerCase() === 'guiller')?.role_key ?? null;
+
   return (
     <PageShell title="Misiones" description="Centro principal para convertir instrucciones de alto nivel en trabajo gobernado, auditable y ejecutable.">
       {error ? <ActionFeedback tone="warning" message={error} /> : null}
@@ -155,7 +158,7 @@ export function MissionsPage() {
               <option value="critical">crítica</option>
             </select>
           </FormField>
-          <FormField label="Espacio operativo">
+          <FormField label="Espacio operativo" helper={selectedWorkspace ? `Actor operativo: Guiller, rol detectado: ${selectedWorkspaceRole ?? 'sin rol'}.` : 'Si eliges un espacio, Mission Control validará que el actor tenga rol operativo.'}>
             <select className="panel-input" value={workspaceId} onChange={(event) => setWorkspaceId(event.target.value)}>
               <option value="">Sin espacio específico</option>
               {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}

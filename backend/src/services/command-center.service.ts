@@ -197,6 +197,10 @@ const defaultPolicySettings = [
   },
 ];
 
+function canOperateWorkspace(roleKey?: string | null) {
+  return ['owner', 'admin', 'operator'].includes(String(roleKey ?? ''));
+}
+
 function resolvePolicyValue(settings: Array<{ setting_key: string; setting_value: unknown }>, key: string, fallback: boolean) {
   const matched = settings.find((setting) => setting.setting_key === key);
   if (!matched) return fallback;
@@ -525,11 +529,15 @@ export const commandCenterService = {
   async createMissionFromPrompt(payload: { prompt: string; createdBy: string; priority: string; sandbox: boolean; workspaceId?: string; title?: string; metadata?: Record<string, unknown> }) {
     const riskLevel = detectRiskLevel(payload.prompt);
     const sensitiveActions = detectSensitiveActions(payload.prompt);
-    const [agents, settings, workspace] = await Promise.all([
+    const [agents, settings, workspace, membership] = await Promise.all([
       commandCenterRepository.getAgents(),
       commandCenterRepository.getSystemSettings(),
       payload.workspaceId ? commandCenterRepository.getWorkspaceById(payload.workspaceId) : Promise.resolve(null),
+      payload.workspaceId ? commandCenterRepository.getWorkspaceMembershipByName(payload.workspaceId, payload.createdBy) : Promise.resolve(null),
     ]);
+    if (payload.workspaceId && workspace && !canOperateWorkspace(membership?.role_key)) {
+      throw new AppError('El actor no tiene permisos operativos para crear misiones en este espacio.', 403);
+    }
     const requireApprovalHighRisk = resolvePolicyValue(settings, 'politica.aprobacion_riesgo_alto', true);
     const blockShellCommands = resolvePolicyValue(settings, 'politica.bloquear_shell_sin_aprobacion', true);
     const assignedAgent = agents.find((agent) => agent.status === 'active') ?? null;
@@ -553,7 +561,7 @@ export const commandCenterService = {
       plan: buildMissionPlan(payload.prompt),
       metadata: { promptOriginal: payload.prompt, origen: 'mission_control', sandbox: payload.sandbox, workspaceId: workspace?.id ?? payload.workspaceId ?? null, workspaceName: workspace?.name ?? null, decisionesPolitica: { requireApprovalHighRisk, blockShellCommands, bloqueaPorPolitica }, ...(payload.metadata ?? {}) },
     });
-    await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_created', moduleName: 'missions', payloadSummary: { missionId: created.id, riskLevel, workspaceId: workspace?.id ?? null, workspaceName: workspace?.name ?? null }, resultStatus: 'success', severity: 'info' });
+    await commandCenterRepository.createAuditLog({ actor: payload.createdBy, action: 'mission_created', moduleName: 'missions', payloadSummary: { missionId: created.id, riskLevel, workspaceId: workspace?.id ?? null, workspaceName: workspace?.name ?? null, workspaceRole: membership?.role_key ?? null }, resultStatus: 'success', severity: 'info' });
     return created;
   },
   // Permite modificar el plan propuesto antes de enviarlo a ejecución.
