@@ -210,11 +210,12 @@ export function TasksPage() {
           <select className="panel-input" value={filters.statusFilter} onChange={(event) => set('statusFilter', event.target.value)}><option value="all">todos los estados</option><option value="pending">pendientes</option><option value="running">running</option><option value="awaiting_approval">esperando aprobación</option><option value="completed">completadas</option><option value="failed">fallidas</option><option value="cancelled">canceladas</option></select>
         </div>
         <DataTable
-          columns={['Título', 'Prioridad', 'Tipo', 'Estado', 'Detalle', 'Acciones']}
+          columns={['Título', 'Prioridad', 'Tipo', 'Espacio', 'Estado', 'Detalle', 'Acciones']}
           rows={filteredTasks.map((task) => [
             <div className="max-w-xs"><p className="text-sm font-semibold text-white">{task.title}</p><p className="mt-1 text-xs text-zinc-500">{task.result_summary ?? 'Sin resumen todavía'}</p></div>,
             <span className="text-sm text-zinc-300">{formatDisplayText(task.priority)}</span>,
             <span className="text-sm text-zinc-300">{formatDisplayText(task.task_type)}</span>,
+            <span className="text-sm text-zinc-300">{String(task.metadata?.workspaceName ?? 'Sin espacio')}</span>,
             <StatusBadge status={task.status} />,
             <Link className="text-blue-300 hover:text-blue-200" to={`/tasks/${task.id}`}>Ver detalle</Link>,
             <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(task)} />{task.status !== 'running' && task.status !== 'completed' ? <Button size="sm" variant="secondary" onClick={() => void updateTaskStatus(task, 'running')}>Run</Button> : null}{task.status === 'running' ? <Button size="sm" variant="ghost" onClick={() => void updateTaskStatus(task, 'completed')}>Completar</Button> : null}{task.status === 'failed' || task.status === 'cancelled' ? <Button size="sm" variant="secondary" onClick={() => void rerunTask(task)}>Reintentar</Button> : null}{task.status !== 'cancelled' ? <IconCancelButton onClick={() => void cancelTask(task.id)} /> : null}</div>,
