@@ -28,6 +28,7 @@ app.use('/api/skills', skillsRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/task-runs', runsRoutes);
 app.use('/api/approvals', approvalsRoutes);
+app.use('/api/audit', auditRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/mcp', mcpRoutes);
 app.use('/api/missions', missionsRoutes);
