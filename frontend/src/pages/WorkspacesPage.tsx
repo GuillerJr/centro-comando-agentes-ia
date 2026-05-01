@@ -41,12 +41,12 @@ export function WorkspacesPage() {
       setError(null);
       setFeedback(null);
       await commandCenterApi.createWorkspace(form);
-      setFeedback('El workspace se creó correctamente.');
+      setFeedback('El espacio se creó correctamente.');
       setModalOpen(false);
       setForm({ name: '', slug: '', description: '', ownerName: 'Guiller', ownerEmail: '' });
       await loadWorkspaces();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No se pudo crear el workspace.');
+      setError(reason instanceof Error ? reason.message : 'No se pudo crear el espacio.');
     } finally {
       setIsSubmitting(false);
     }
@@ -67,7 +67,7 @@ export function WorkspacesPage() {
   };
 
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => void loadWorkspaces()}>Reintentar</Button>} />;
-  if (isLoading) return <LoadingState label="Cargando workspaces..." />;
+  if (isLoading) return <LoadingState label="Cargando espacios..." />;
 
   return (
     <PageShell title="Espacios" description="Base inicial para separar contexto, propiedad y visibilidad dentro de Mission Control." action={<Button onClick={() => setModalOpen(true)}>Crear espacio</Button>}>

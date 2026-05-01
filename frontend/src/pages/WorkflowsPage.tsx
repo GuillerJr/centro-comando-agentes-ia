@@ -29,7 +29,7 @@ export function WorkflowsPage() {
       setTemplates(templateData);
       setWorkspaces(workspaceData);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'No se pudieron cargar los workflows.');
+      setError(reason instanceof Error ? reason.message : 'No se pudieron cargar los flujos.');
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +57,7 @@ export function WorkflowsPage() {
         recommendedSandbox: form.recommendedSandbox,
         steps: parseSteps(),
       });
-      setFeedback('La plantilla de workflow se creó correctamente.');
+      setFeedback('La plantilla de flujo se creó correctamente.');
       setForm({ name: '', description: '', objective: '', defaultPriority: 'medium', recommendedSandbox: true, stepsText: '' });
       setModalOpen(false);
       await loadTemplates();
@@ -81,7 +81,7 @@ export function WorkflowsPage() {
   };
 
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => void loadTemplates()}>Reintentar</Button>} />;
-  if (isLoading) return <LoadingState label="Cargando workflows..." />;
+  if (isLoading) return <LoadingState label="Cargando flujos..." />;
 
   return (
     <PageShell title="Flujos" description="Constructor inicial de plantillas reutilizables para lanzar misiones con estructura consistente." action={<Button onClick={() => setModalOpen(true)}>Crear flujo</Button>}>
