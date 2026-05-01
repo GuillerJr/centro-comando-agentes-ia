@@ -73,11 +73,12 @@ export function DashboardPage() {
       <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
         <SectionCard title="Cola principal de misiones" subtitle="Lectura prioritaria del trabajo estratégico que gobierna Mission Control.">
           <DataTable
-            columns={['Misión', 'Estado', 'Riesgo', 'Aprobación', 'Pasos']}
+            columns={['Misión', 'Estado', 'Riesgo', 'Espacio', 'Aprobación', 'Pasos']}
             rows={dashboard.missions.map((mission) => [
               <div className="max-w-md"><p className="text-sm font-semibold text-white">{mission.title}</p><p className="mt-1 text-xs text-zinc-500">{mission.summary}</p></div>,
               <StatusBadge status={mission.status} />,
               <StatusBadge status={mission.risk_level} />,
+              <span className="text-sm text-zinc-300">{String((mission.metadata as Record<string, unknown> | undefined)?.workspaceName ?? 'Sin espacio')}</span>,
               <span className="text-sm text-zinc-300">{mission.requires_approval ? 'Requerida' : 'No requerida'}</span>,
               <span className="text-sm text-zinc-300">{mission.estimated_steps}</span>,
             ])}
@@ -89,6 +90,7 @@ export function DashboardPage() {
             columns={['Indicador', 'Valor', 'Lectura']}
             rows={[
               ['Misiones en espera de aprobación', dashboard.missions.filter((mission) => mission.status === 'waiting_for_approval').length, 'Trabajo frenado hasta recibir autorización humana.'],
+              ['Misiones con espacio asignado', dashboard.missions.filter((mission) => Boolean((mission.metadata as Record<string, unknown> | undefined)?.workspaceId)).length, 'Carga estratégica ya ligada a un contexto organizativo concreto.'],
               ['Tareas en curso', dashboard.metrics.running_tasks, 'Carga de ejecución real actualmente corriendo debajo del centro de mando.'],
               ['Alertas críticas', dashboard.metrics.critical_alerts, 'Señales severas que exigen revisión antes de abrir nuevos frentes.'],
               ['Runtime OpenClaw', formatDisplayText(String(dashboard.openClawStatus.state ?? 'desconocido')), 'Estado más reciente del motor operativo conectado.'],
