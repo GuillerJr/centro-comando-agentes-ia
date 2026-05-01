@@ -16,7 +16,20 @@ export function AgentsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5, communicationChannel: '', communicationChannelType: 'telegram' });
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    agentType: 'specialist',
+    priority: 60,
+    executionLimit: 5,
+    communicationChannel: '',
+    communicationChannelType: 'telegram',
+    communicationProvider: 'telegram',
+    communicationTarget: '',
+    communicationMode: 'direct',
+    communicationIsDedicated: true,
+    communicationReplyPolicy: 'same_channel',
+  });
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,7 +50,20 @@ export function AgentsPage() {
   useEffect(() => { void loadAgents(); }, []);
 
   const resetForm = () => {
-    setForm({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5, communicationChannel: '', communicationChannelType: 'telegram' });
+    setForm({
+      name: '',
+      description: '',
+      agentType: 'specialist',
+      priority: 60,
+      executionLimit: 5,
+      communicationChannel: '',
+      communicationChannelType: 'telegram',
+      communicationProvider: 'telegram',
+      communicationTarget: '',
+      communicationMode: 'direct',
+      communicationIsDedicated: true,
+      communicationReplyPolicy: 'same_channel',
+    });
     setEditingAgent(null);
     setEditingAgentId(null);
     setIsModalOpen(false);
@@ -49,7 +75,7 @@ export function AgentsPage() {
     setActionError(null);
     setEditingAgent(null);
     setEditingAgentId(null);
-    setForm({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5, communicationChannel: '', communicationChannelType: 'telegram' });
+    resetForm();
     setIsModalOpen(true);
   };
 
@@ -70,26 +96,39 @@ export function AgentsPage() {
       setActionError(parsed.error.issues[0]?.message ?? 'Formulario inválido.');
       return;
     }
+
+    const metadata = {
+      ...(editingAgent?.metadata ?? {}),
+      communicationLegacy: {
+        channel: form.communicationChannel || null,
+        type: form.communicationChannelType,
+      },
+    };
+
+    const payload = {
+      ...parsed.data,
+      communicationChannel: form.communicationChannel || null,
+      communicationChannelType: form.communicationChannelType,
+      communicationProvider: form.communicationProvider,
+      communicationTarget: form.communicationTarget || null,
+      communicationMode: form.communicationMode,
+      communicationIsDedicated: form.communicationIsDedicated,
+      communicationReplyPolicy: form.communicationReplyPolicy,
+      metadata,
+    };
+
     try {
       setIsSubmitting(true);
       setActionError(null);
-      const metadata = {
-        ...(editingAgent?.metadata ?? {}),
-        communicationChannel: form.communicationChannel || null,
-        communicationChannelType: form.communicationChannelType,
-      };
       if (editingAgentId) {
         await commandCenterApi.updateAgent(editingAgentId, {
-          ...parsed.data,
+          ...payload,
           status: editingAgent?.status ?? 'active',
           skillIds: editingAgent?.skill_ids ?? [],
-          communicationChannel: form.communicationChannel || null,
-          communicationChannelType: form.communicationChannelType,
-          metadata,
         });
         setFeedback('El agente se actualizó correctamente.');
       } else {
-        await commandCenterApi.createAgent({ ...parsed.data, status: 'active', skillIds: [], communicationChannel: form.communicationChannel || null, communicationChannelType: form.communicationChannelType, metadata });
+        await commandCenterApi.createAgent({ ...payload, status: 'active', skillIds: [] });
         setFeedback('El agente se creó correctamente.');
       }
       resetForm();
@@ -114,6 +153,11 @@ export function AgentsPage() {
       executionLimit: agent.execution_limit,
       communicationChannel: agent.communication_channel ?? '',
       communicationChannelType: agent.communication_channel_type ?? 'telegram',
+      communicationProvider: agent.communication_provider ?? agent.communication_channel_type ?? 'telegram',
+      communicationTarget: agent.communication_target ?? agent.communication_channel ?? '',
+      communicationMode: agent.communication_mode ?? 'direct',
+      communicationIsDedicated: agent.communication_is_dedicated ?? true,
+      communicationReplyPolicy: agent.communication_reply_policy ?? 'same_channel',
     });
     setIsModalOpen(true);
   };
@@ -135,8 +179,9 @@ export function AgentsPage() {
   if (isLoading) return <LoadingState label="Cargando agentes..." />;
 
   const filteredAgents = agents.filter((agent) => {
-    const channel = typeof agent.metadata?.communicationChannel === 'string' ? agent.metadata.communicationChannel : '';
-    const matchesSearch = `${agent.name} ${agent.description} ${agent.agent_type} ${channel}`.toLowerCase().includes(filters.search.toLowerCase());
+    const channel = agent.communication_channel ?? '';
+    const target = agent.communication_target ?? '';
+    const matchesSearch = `${agent.name} ${agent.description} ${agent.agent_type} ${channel} ${target}`.toLowerCase().includes(filters.search.toLowerCase());
     const matchesStatus = filters.statusFilter === 'all' || agent.status === filters.statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -145,7 +190,7 @@ export function AgentsPage() {
   const distribution = Array.from(new Set(agents.map((agent) => agent.agent_type)));
 
   return (
-    <PageShell title="Agentes" description="Registro operativo de agentes, prioridad, límites, disponibilidad y canal de comunicación asociado.">
+    <PageShell title="Agentes" description="Registro operativo de agentes, prioridad, límites y configuración de comunicación independiente por agente.">
       {!isModalOpen && actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
       {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
       <StatsGrid
@@ -153,7 +198,7 @@ export function AgentsPage() {
         items={[
           { eyebrow: 'Capacidad', title: `${activeAgents} activos`, description: 'Agentes actualmente disponibles para orquestación y ejecución.', tone: 'success' },
           { eyebrow: 'Cobertura', title: `${agents.length} registrados`, description: 'Inventario total con trazabilidad y parámetros operativos.', tone: 'default' },
-          { eyebrow: 'Límites', title: `${agents.reduce((total, agent) => total + agent.execution_limit, 0)} ejecuciones`, description: 'Capacidad agregada declarada antes de repartir carga entre agentes.', tone: 'default' },
+          { eyebrow: 'Canales dedicados', title: `${agents.filter((agent) => agent.communication_is_dedicated).length}`, description: 'Agentes con destino separado del canal principal del operador.', tone: 'default' },
         ]}
       />
 
@@ -170,24 +215,24 @@ export function AgentsPage() {
 
       <SectionCard title="Registro de agentes" subtitle="Gestión centralizada mediante tabla, acciones compactas y modales." action={<CreateButton label="Crear agente" onClick={openCreate} />}>
         <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-          <Input placeholder="Buscar agente o canal..." value={filters.search} onChange={(event) => set('search', event.target.value)} />
+          <Input placeholder="Buscar agente, canal o destino..." value={filters.search} onChange={(event) => set('search', event.target.value)} />
           <select className="panel-input" value={filters.statusFilter} onChange={(event) => set('statusFilter', event.target.value)}><option value="all">todos los estados</option><option value="active">activos</option><option value="inactive">inactivos</option><option value="error">error</option><option value="maintenance">mantenimiento</option></select>
         </div>
         <DataTable
-          columns={['Nombre', 'Tipo', 'Canal', 'Estado', 'Prioridad', 'Límite', 'Acciones']}
+          columns={['Nombre', 'Tipo', 'Proveedor', 'Destino', 'Modo', 'Estado', 'Acciones']}
           rows={filteredAgents.map((agent) => [
             <div className="max-w-xs"><p className="text-sm font-semibold text-white">{agent.name}</p><p className="mt-1 text-xs text-zinc-500">{agent.description}</p></div>,
             <span className="text-sm text-zinc-300">{formatDisplayText(agent.agent_type)}</span>,
-            <span className="text-sm text-zinc-300">{agent.communication_channel ? `${formatDisplayText(agent.communication_channel_type ?? 'telegram')} · ${agent.communication_channel}` : 'Sin canal'}</span>,
+            <span className="text-sm text-zinc-300">{agent.communication_provider ? formatDisplayText(agent.communication_provider) : 'Sin proveedor'}</span>,
+            <div className="max-w-[220px] text-sm text-zinc-300"><p>{agent.communication_target ?? 'Sin destino'}</p><p className="mt-1 text-xs text-zinc-500">{agent.communication_is_dedicated ? 'Canal dedicado' : 'Comparte canal principal'}</p></div>,
+            <span className="text-sm text-zinc-300">{agent.communication_mode ? formatDisplayText(agent.communication_mode) : 'Sin modo'}</span>,
             <StatusBadge status={agent.status} />,
-            <span className="text-sm text-zinc-300">{agent.priority}</span>,
-            <span className="text-sm text-zinc-300">{agent.execution_limit}</span>,
-            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(agent)} /><IconToggleButton active={agent.status === 'active'} onClick={() => void toggleStatus(agent)} /><Button size="sm" variant="secondary" onClick={() => void commandCenterApi.updateAgent(agent.id, { name: agent.name, description: agent.description, agentType: agent.agent_type, status: agent.status, skillIds: agent.skill_ids, priority: Math.min(100, agent.priority + 5), executionLimit: agent.execution_limit, metadata: agent.metadata ?? {} }).then(loadAgents).then(() => setFeedback(`La prioridad de ${agent.name} subió a ${Math.min(100, agent.priority + 5)}.`)).catch((reason) => setActionError(reason instanceof Error ? reason.message : 'No se pudo subir la prioridad.'))}>+Prioridad</Button></div>,
+            <div className="flex flex-wrap gap-2"><IconEditButton onClick={() => startEdit(agent)} /><IconToggleButton active={agent.status === 'active'} onClick={() => void toggleStatus(agent)} /><Button size="sm" variant="secondary" onClick={() => void commandCenterApi.updateAgent(agent.id, { name: agent.name, description: agent.description, agentType: agent.agent_type, status: agent.status, skillIds: agent.skill_ids, priority: Math.min(100, agent.priority + 5), executionLimit: agent.execution_limit, communicationChannel: agent.communication_channel ?? null, communicationChannelType: agent.communication_channel_type ?? null, communicationProvider: agent.communication_provider ?? null, communicationTarget: agent.communication_target ?? null, communicationMode: agent.communication_mode ?? null, communicationIsDedicated: agent.communication_is_dedicated ?? false, communicationReplyPolicy: agent.communication_reply_policy ?? null, metadata: agent.metadata ?? {} }).then(loadAgents).then(() => setFeedback(`La prioridad de ${agent.name} subió a ${Math.min(100, agent.priority + 5)}.`)).catch((reason) => setActionError(reason instanceof Error ? reason.message : 'No se pudo subir la prioridad.'))}>+Prioridad</Button></div>,
           ])}
         />
       </SectionCard>
 
-      <Modal open={isModalOpen} onOpenChange={handleModalChange} title={editingAgentId ? 'Editar agente' : 'Crear agente'} description="Formulario compacto para alta o edición de agentes.">
+      <Modal open={isModalOpen} onOpenChange={handleModalChange} title={editingAgentId ? 'Editar agente' : 'Crear agente'} description="Formulario compacto para alta o edición de agentes con configuración de comunicación independiente.">
         <form className="space-y-4" onSubmit={handleSubmit}>
           {actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
           <FormField label="Nombre" helper="Identificador visible en el centro de comando."><Input placeholder="Nombre del agente" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></FormField>
@@ -204,9 +249,21 @@ export function AgentsPage() {
             <FormField label="Límite de ejecución" helper="Cantidad máxima de ejecuciones simultáneas."><Input type="number" min={1} max={100} value={form.executionLimit} onChange={(event) => setForm((current) => ({ ...current, executionLimit: Number(event.target.value) }))} /></FormField>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Canal de comunicación" helper="Ejemplo: chat, handle, id o referencia que use OpenClaw para hablar con este agente."><Input placeholder="telegram:agente-diseno o @agente" value={form.communicationChannel} onChange={(event) => setForm((current) => ({ ...current, communicationChannel: event.target.value }))} /></FormField>
-            <FormField label="Tipo de canal"><select className="panel-input" value={form.communicationChannelType} onChange={(event) => setForm((current) => ({ ...current, communicationChannelType: event.target.value }))}><option value="telegram">telegram</option><option value="discord">discord</option><option value="signal">signal</option><option value="whatsapp">whatsapp</option><option value="interno">interno</option><option value="otro">otro</option></select></FormField>
+            <FormField label="Proveedor de comunicación"><select className="panel-input" value={form.communicationProvider} onChange={(event) => setForm((current) => ({ ...current, communicationProvider: event.target.value, communicationChannelType: event.target.value }))}><option value="telegram">telegram</option><option value="discord">discord</option><option value="signal">signal</option><option value="whatsapp">whatsapp</option><option value="interno">interno</option><option value="otro">otro</option></select></FormField>
+            <FormField label="Destino del agente" helper="Chat, canal, user id, route key o destino interno independiente del canal principal."><Input placeholder="telegram:-100xxxx / interno:loki / discord:canal-agente" value={form.communicationTarget} onChange={(event) => setForm((current) => ({ ...current, communicationTarget: event.target.value, communicationChannel: event.target.value }))} /></FormField>
           </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label="Modo de comunicación"><select className="panel-input" value={form.communicationMode} onChange={(event) => setForm((current) => ({ ...current, communicationMode: event.target.value }))}><option value="direct">directo</option><option value="thread">hilo</option><option value="relay">relay</option><option value="internal">interno</option></select></FormField>
+            <FormField label="Política de respuesta"><select className="panel-input" value={form.communicationReplyPolicy} onChange={(event) => setForm((current) => ({ ...current, communicationReplyPolicy: event.target.value }))}><option value="same_channel">mismo canal</option><option value="mission_control">volver a Mission Control</option><option value="notify_only">solo notificar</option><option value="internal_only">solo interno</option></select></FormField>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label="Referencia resumida del canal" helper="Alias breve o referencia compacta visible en tablas."><Input placeholder="telegram:agente-ui" value={form.communicationChannel} onChange={(event) => setForm((current) => ({ ...current, communicationChannel: event.target.value }))} /></FormField>
+            <FormField label="Tipo de canal heredado" helper="Compatibilidad con la referencia corta."><Input value={form.communicationChannelType} onChange={(event) => setForm((current) => ({ ...current, communicationChannelType: event.target.value }))} /></FormField>
+          </div>
+          <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3 text-sm text-zinc-300">
+            <input type="checkbox" checked={form.communicationIsDedicated} onChange={(event) => setForm((current) => ({ ...current, communicationIsDedicated: event.target.checked }))} />
+            Este agente usa un canal dedicado y distinto del canal principal de OpenClaw con Guiller.
+          </label>
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : editingAgentId ? 'Guardar cambios' : 'Crear agente'}</Button>
             <Button type="button" variant="secondary" onClick={resetForm}>Cancelar</Button>

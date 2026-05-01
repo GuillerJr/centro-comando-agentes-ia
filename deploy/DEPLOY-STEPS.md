@@ -53,6 +53,11 @@ Confirma que ya existen estas columnas:
 
 - `communication_channel`
 - `communication_channel_type`
+- `communication_provider`
+- `communication_target`
+- `communication_mode`
+- `communication_is_dedicated`
+- `communication_reply_policy`
 
 ## 2. Publicar backend y frontend actuales
 ```bash

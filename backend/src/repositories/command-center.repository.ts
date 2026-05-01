@@ -11,18 +11,18 @@ export const commandCenterRepository = {
   },
   async createAgent(payload: any) {
     const result = await pool.query(
-      `INSERT INTO ai_agents (name, description, agent_type, status, skill_ids, priority, execution_limit, communication_channel, communication_channel_type, metadata, last_activity_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW()) RETURNING *`,
-      [payload.name, payload.description, payload.agentType, payload.status, payload.skillIds, payload.priority, payload.executionLimit, payload.communicationChannel ?? null, payload.communicationChannelType ?? null, JSON.stringify(payload.metadata ?? {})],
+      `INSERT INTO ai_agents (name, description, agent_type, status, skill_ids, priority, execution_limit, communication_channel, communication_channel_type, communication_provider, communication_target, communication_mode, communication_is_dedicated, communication_reply_policy, metadata, last_activity_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW()) RETURNING *`,
+      [payload.name, payload.description, payload.agentType, payload.status, payload.skillIds, payload.priority, payload.executionLimit, payload.communicationChannel ?? null, payload.communicationChannelType ?? null, payload.communicationProvider ?? null, payload.communicationTarget ?? null, payload.communicationMode ?? null, payload.communicationIsDedicated ?? false, payload.communicationReplyPolicy ?? null, JSON.stringify(payload.metadata ?? {})],
     );
     return result.rows[0];
   },
   async updateAgent(agentId: string, payload: any) {
     const result = await pool.query(
       `UPDATE ai_agents
-       SET name=$2, description=$3, agent_type=$4, status=$5, skill_ids=$6, priority=$7, execution_limit=$8, communication_channel=$9, communication_channel_type=$10, metadata=$11, last_activity_at=NOW()
+       SET name=$2, description=$3, agent_type=$4, status=$5, skill_ids=$6, priority=$7, execution_limit=$8, communication_channel=$9, communication_channel_type=$10, communication_provider=$11, communication_target=$12, communication_mode=$13, communication_is_dedicated=$14, communication_reply_policy=$15, metadata=$16, last_activity_at=NOW()
        WHERE id=$1 RETURNING *`,
-      [agentId, payload.name, payload.description, payload.agentType, payload.status, payload.skillIds, payload.priority, payload.executionLimit, payload.communicationChannel ?? null, payload.communicationChannelType ?? null, JSON.stringify(payload.metadata ?? {})],
+      [agentId, payload.name, payload.description, payload.agentType, payload.status, payload.skillIds, payload.priority, payload.executionLimit, payload.communicationChannel ?? null, payload.communicationChannelType ?? null, payload.communicationProvider ?? null, payload.communicationTarget ?? null, payload.communicationMode ?? null, payload.communicationIsDedicated ?? false, payload.communicationReplyPolicy ?? null, JSON.stringify(payload.metadata ?? {})],
     );
     return result.rows[0] ?? null;
   },

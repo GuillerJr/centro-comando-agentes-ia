@@ -12,6 +12,11 @@ export const createAgentSchema = z.object({
   executionLimit: z.number().int().min(1).max(100),
   communicationChannel: z.string().max(255).nullable().optional(),
   communicationChannelType: z.string().max(40).nullable().optional(),
+  communicationProvider: z.string().max(40).nullable().optional(),
+  communicationTarget: z.string().max(255).nullable().optional(),
+  communicationMode: z.string().max(40).nullable().optional(),
+  communicationIsDedicated: z.boolean().optional().default(false),
+  communicationReplyPolicy: z.string().max(40).nullable().optional(),
   metadata: z.record(z.any()).optional().default({}),
 });
 
