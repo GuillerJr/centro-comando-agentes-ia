@@ -104,10 +104,11 @@ export function ApprovalsPage() {
             <select className="panel-input" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">todos los estados</option><option value="pending">pending</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="executed">executed</option></select>
           </div>
           <DataTable
-            columns={['Tipo', 'Misión', 'Estado', 'Motivo', 'Impacto', 'Acciones']}
+            columns={['Tipo', 'Misión', 'Espacio', 'Estado', 'Motivo', 'Impacto', 'Acciones']}
             rows={filteredApprovals.map((approval) => [
               <div className="text-sm font-medium text-white">{formatDisplayText(approval.approval_type)}</div>,
               <div><div className="text-sm text-zinc-300">{approval.mission_title ?? 'Sin misión enlazada'}</div><div className="mt-1 text-xs text-zinc-500">{approval.task_title ?? approval.requested_by}</div></div>,
+              <span className="text-sm text-zinc-300">{String(approval.payload_summary?.workspaceName ?? 'Sin espacio')}</span>,
               <StatusBadge status={approval.status} />,
               <div className="text-sm leading-6 text-zinc-400">{approval.reason}</div>,
               <div className="max-w-[16rem] text-xs leading-6 text-zinc-400"><p>Riesgo: {formatDisplayText(String(approval.payload_summary?.riskLevel ?? 'medium'))}</p><p>Modo: {approval.payload_summary?.sandbox ? 'simulación segura' : 'ejecución real'}</p><p>Acciones: {Array.isArray(approval.payload_summary?.sensitiveActions) ? approval.payload_summary.sensitiveActions.length : 0}</p></div>,
@@ -125,6 +126,7 @@ export function ApprovalsPage() {
               ['Solicitante', latestApproval.requested_by],
               ['Estado', <StatusBadge status={latestApproval.status} />],
               ['Estado de misión', latestApproval.mission_status ? <StatusBadge status={latestApproval.mission_status} /> : 'Sin misión'],
+              ['Espacio', String(latestApproval.payload_summary?.workspaceName ?? 'Sin espacio')],
               ['Notas', <div className="text-sm leading-6 text-zinc-400">{latestApproval.execution_notes ?? 'Sin notas todavía'}</div>],
               ['Impacto', <div className="text-sm leading-6 text-zinc-300">Riesgo {formatDisplayText(String(latestApproval.payload_summary?.riskLevel ?? 'medium'))}, modo {latestApproval.payload_summary?.sandbox ? 'simulación segura' : 'ejecución real'} y {Array.isArray(latestApproval.payload_summary?.sensitiveActions) ? latestApproval.payload_summary.sensitiveActions.length : 0} acciones sensibles detectadas.</div>],
               ['Permisos requeridos', <div className="text-sm leading-6 text-zinc-300">{Array.isArray(latestApproval.payload_summary?.requiredPermissions) && latestApproval.payload_summary.requiredPermissions.length > 0 ? latestApproval.payload_summary.requiredPermissions.join(', ') : 'Sin permisos especiales declarados.'}</div>],
