@@ -4,10 +4,11 @@ import { Button } from '../components/button';
 import { Input } from '../components/input';
 import { ActionFeedback, DataTable, EmptyState, ErrorState, formatDateTime, formatDisplayText, formatDuration, LoadingState, PageShell, SectionCard, StatsGrid, StatusBadge } from '../components/ui';
 import { usePersistedFilters } from '../hooks/use-persisted-filters';
-import type { TaskRun } from '../types/domain';
+import type { Task, TaskRun } from '../types/domain';
 
 export function RunsPage() {
   const [runs, setRuns] = useState<TaskRun[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +19,12 @@ export function RunsPage() {
     try {
       setIsLoading(true);
       setError(null);
-      setRuns(await commandCenterApi.getTaskRunsAll());
+      const [runData, taskData] = await Promise.all([
+        commandCenterApi.getTaskRunsAll(),
+        commandCenterApi.getTasks(),
+      ]);
+      setRuns(runData);
+      setTasks(taskData);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'No se pudieron cargar las ejecuciones.');
     } finally {
@@ -53,6 +59,8 @@ export function RunsPage() {
   if (error && isLoading) return <ErrorState message={error} action={<Button onClick={() => void loadRuns()}>Reintentar</Button>} />;
   if (isLoading) return <LoadingState label="Cargando ejecuciones..." />;
 
+  const taskIndex = new Map(tasks.map((task) => [task.id, task]));
+
   const filteredRuns = runs.filter((run) => {
     const matchesSearch = `${run.trace_id} ${run.task_id} ${run.requested_action}`.toLowerCase().includes(filters.search.toLowerCase());
     const matchesStatus = filters.statusFilter === 'all' || run.status === filters.statusFilter;
@@ -81,10 +89,11 @@ export function RunsPage() {
             <select className="panel-input" value={filters.statusFilter} onChange={(event) => set('statusFilter', event.target.value)}><option value="all">todos los estados</option><option value="queued">queued</option><option value="running">running</option><option value="completed">completed</option><option value="failed">failed</option><option value="cancelled">cancelled</option></select>
           </div>
           <DataTable
-            columns={['Traza', 'Tarea', 'Modo', 'Estado', 'Duración', 'Fecha', 'Acciones']}
+            columns={['Traza', 'Tarea', 'Espacio', 'Modo', 'Estado', 'Duración', 'Fecha', 'Acciones']}
             rows={filteredRuns.map((run) => [
               <span className="font-mono text-xs text-zinc-500">{run.trace_id.slice(0, 12)}</span>,
               <span className="text-sm text-zinc-300">{run.task_id}</span>,
+              <span className="text-sm text-zinc-300">{String(taskIndex.get(run.task_id)?.metadata?.workspaceName ?? 'Sin espacio')}</span>,
               <span className="text-sm text-zinc-300">{formatDisplayText(run.execution_mode)}</span>,
               <StatusBadge status={run.status} />,
               formatDuration(run.duration_ms),
@@ -100,6 +109,7 @@ export function RunsPage() {
             rows={[
               ['Traza', <span className="font-mono text-xs text-zinc-300">{lastRun.trace_id}</span>],
               ['Estado', <StatusBadge status={lastRun.status} />],
+              ['Espacio', String(taskIndex.get(lastRun.task_id)?.metadata?.workspaceName ?? 'Sin espacio')],
               ['Modo', formatDisplayText(lastRun.execution_mode)],
               ['Fecha', formatDateTime(lastRun.executed_at)],
               ['Duración', formatDuration(lastRun.duration_ms)],
