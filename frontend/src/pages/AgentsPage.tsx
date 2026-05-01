@@ -16,7 +16,7 @@ export function AgentsPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5 });
+  const [form, setForm] = useState({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5, communicationChannel: '', communicationChannelType: 'telegram' });
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [editingAgentId, setEditingAgentId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -37,7 +37,7 @@ export function AgentsPage() {
   useEffect(() => { void loadAgents(); }, []);
 
   const resetForm = () => {
-    setForm({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5 });
+    setForm({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5, communicationChannel: '', communicationChannelType: 'telegram' });
     setEditingAgent(null);
     setEditingAgentId(null);
     setIsModalOpen(false);
@@ -49,7 +49,7 @@ export function AgentsPage() {
     setActionError(null);
     setEditingAgent(null);
     setEditingAgentId(null);
-    setForm({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5 });
+    setForm({ name: '', description: '', agentType: 'specialist', priority: 60, executionLimit: 5, communicationChannel: '', communicationChannelType: 'telegram' });
     setIsModalOpen(true);
   };
 
@@ -73,16 +73,23 @@ export function AgentsPage() {
     try {
       setIsSubmitting(true);
       setActionError(null);
+      const metadata = {
+        ...(editingAgent?.metadata ?? {}),
+        communicationChannel: form.communicationChannel || null,
+        communicationChannelType: form.communicationChannelType,
+      };
       if (editingAgentId) {
         await commandCenterApi.updateAgent(editingAgentId, {
           ...parsed.data,
           status: editingAgent?.status ?? 'active',
           skillIds: editingAgent?.skill_ids ?? [],
-          metadata: editingAgent?.metadata ?? {},
+          communicationChannel: form.communicationChannel || null,
+          communicationChannelType: form.communicationChannelType,
+          metadata,
         });
         setFeedback('El agente se actualizó correctamente.');
       } else {
-        await commandCenterApi.createAgent({ ...parsed.data, status: 'active', skillIds: [], metadata: {} });
+        await commandCenterApi.createAgent({ ...parsed.data, status: 'active', skillIds: [], communicationChannel: form.communicationChannel || null, communicationChannelType: form.communicationChannelType, metadata });
         setFeedback('El agente se creó correctamente.');
       }
       resetForm();
@@ -105,6 +112,8 @@ export function AgentsPage() {
       agentType: agent.agent_type,
       priority: agent.priority,
       executionLimit: agent.execution_limit,
+      communicationChannel: agent.communication_channel ?? '',
+      communicationChannelType: agent.communication_channel_type ?? 'telegram',
     });
     setIsModalOpen(true);
   };
@@ -126,7 +135,8 @@ export function AgentsPage() {
   if (isLoading) return <LoadingState label="Cargando agentes..." />;
 
   const filteredAgents = agents.filter((agent) => {
-    const matchesSearch = `${agent.name} ${agent.description} ${agent.agent_type}`.toLowerCase().includes(filters.search.toLowerCase());
+    const channel = typeof agent.metadata?.communicationChannel === 'string' ? agent.metadata.communicationChannel : '';
+    const matchesSearch = `${agent.name} ${agent.description} ${agent.agent_type} ${channel}`.toLowerCase().includes(filters.search.toLowerCase());
     const matchesStatus = filters.statusFilter === 'all' || agent.status === filters.statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -135,7 +145,7 @@ export function AgentsPage() {
   const distribution = Array.from(new Set(agents.map((agent) => agent.agent_type)));
 
   return (
-    <PageShell title="Agentes" description="Registro operativo de agentes, prioridad, límites y disponibilidad para la red multi-agente.">
+    <PageShell title="Agentes" description="Registro operativo de agentes, prioridad, límites, disponibilidad y canal de comunicación asociado.">
       {!isModalOpen && actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
       {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
       <StatsGrid
@@ -160,14 +170,15 @@ export function AgentsPage() {
 
       <SectionCard title="Registro de agentes" subtitle="Gestión centralizada mediante tabla, acciones compactas y modales." action={<CreateButton label="Crear agente" onClick={openCreate} />}>
         <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-          <Input placeholder="Buscar agente..." value={filters.search} onChange={(event) => set('search', event.target.value)} />
+          <Input placeholder="Buscar agente o canal..." value={filters.search} onChange={(event) => set('search', event.target.value)} />
           <select className="panel-input" value={filters.statusFilter} onChange={(event) => set('statusFilter', event.target.value)}><option value="all">todos los estados</option><option value="active">activos</option><option value="inactive">inactivos</option><option value="error">error</option><option value="maintenance">mantenimiento</option></select>
         </div>
         <DataTable
-          columns={['Nombre', 'Tipo', 'Estado', 'Prioridad', 'Límite', 'Acciones']}
+          columns={['Nombre', 'Tipo', 'Canal', 'Estado', 'Prioridad', 'Límite', 'Acciones']}
           rows={filteredAgents.map((agent) => [
             <div className="max-w-xs"><p className="text-sm font-semibold text-white">{agent.name}</p><p className="mt-1 text-xs text-zinc-500">{agent.description}</p></div>,
             <span className="text-sm text-zinc-300">{formatDisplayText(agent.agent_type)}</span>,
+            <span className="text-sm text-zinc-300">{agent.communication_channel ? `${formatDisplayText(agent.communication_channel_type ?? 'telegram')} · ${agent.communication_channel}` : 'Sin canal'}</span>,
             <StatusBadge status={agent.status} />,
             <span className="text-sm text-zinc-300">{agent.priority}</span>,
             <span className="text-sm text-zinc-300">{agent.execution_limit}</span>,
@@ -191,6 +202,10 @@ export function AgentsPage() {
           <div className="grid gap-4 md:grid-cols-2">
             <FormField label="Prioridad" helper="Escala de 1 a 100."><Input type="number" min={1} max={100} value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: Number(event.target.value) }))} /></FormField>
             <FormField label="Límite de ejecución" helper="Cantidad máxima de ejecuciones simultáneas."><Input type="number" min={1} max={100} value={form.executionLimit} onChange={(event) => setForm((current) => ({ ...current, executionLimit: Number(event.target.value) }))} /></FormField>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <FormField label="Canal de comunicación" helper="Ejemplo: chat, handle, id o referencia que use OpenClaw para hablar con este agente."><Input placeholder="telegram:agente-diseno o @agente" value={form.communicationChannel} onChange={(event) => setForm((current) => ({ ...current, communicationChannel: event.target.value }))} /></FormField>
+            <FormField label="Tipo de canal"><select className="panel-input" value={form.communicationChannelType} onChange={(event) => setForm((current) => ({ ...current, communicationChannelType: event.target.value }))}><option value="telegram">telegram</option><option value="discord">discord</option><option value="signal">signal</option><option value="whatsapp">whatsapp</option><option value="interno">interno</option><option value="otro">otro</option></select></FormField>
           </div>
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : editingAgentId ? 'Guardar cambios' : 'Crear agente'}</Button>

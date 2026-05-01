@@ -275,6 +275,26 @@ export function OfficeDesignPage() {
     if (succeeded) resetZoneForm();
   };
 
+  const moveZone = async (zone: OfficeState['zones'][number], deltaX: number, deltaY: number) => {
+    await runMutation(
+      () => commandCenterApi.updateOfficeZone(zone.id, {
+        code: zone.code,
+        name: zone.name,
+        subtitle: zone.subtitle,
+        zoneType: zone.zoneType,
+        accent: zone.accent,
+        gridX: Math.max(0, zone.x + deltaX),
+        gridY: Math.max(0, zone.y + deltaY),
+        gridW: zone.w,
+        gridH: zone.h,
+        displayOrder: 0,
+        metadata: {},
+      }),
+      'La zona se movió correctamente.',
+      'No se pudo mover la zona.',
+    );
+  };
+
   const submitStation = async (event: FormEvent) => {
     event.preventDefault();
     const succeeded = await runMutation(
@@ -377,6 +397,12 @@ export function OfficeDesignPage() {
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
                             <Button size="sm" variant="secondary" onClick={() => { setEditingZoneId(zone.id); setZoneForm({ code: zone.code, name: zone.name, subtitle: zone.subtitle, zoneType: zone.zoneType, accent: zone.accent, gridX: zone.x, gridY: zone.y, gridW: zone.w, gridH: zone.h, displayOrder: 0 }); setZoneModalOpen(true); }}>Editar</Button>
+                            <div className="flex flex-wrap gap-1 rounded-xl border border-white/8 bg-white/[0.03] p-1">
+                              <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void moveZone(zone, 0, -1)}>↑</Button>
+                              <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void moveZone(zone, -1, 0)}>←</Button>
+                              <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void moveZone(zone, 1, 0)}>→</Button>
+                              <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void moveZone(zone, 0, 1)}>↓</Button>
+                            </div>
                             <Button size="sm" variant="ghost" disabled={isSubmitting} onClick={() => void runMutation(() => commandCenterApi.deleteOfficeZone(zone.id), 'La zona se eliminó correctamente.', 'No se pudo eliminar la zona.')}>Eliminar</Button>
                           </div>
                         </td>

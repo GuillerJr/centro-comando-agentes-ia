@@ -44,6 +44,16 @@ Comprueba al menos que aparecen estas tablas nuevas o críticas:
 - `ai_users`
 - `ai_workspace_memberships`
 
+### verificación puntual del nuevo canal de comunicación por agente
+```bash
+psql postgres://postgres:postgres@localhost:5432/centro_comando_agentes_ia -c "\d ai_agents"
+```
+
+Confirma que ya existen estas columnas:
+
+- `communication_channel`
+- `communication_channel_type`
+
 ## 2. Publicar backend y frontend actuales
 ```bash
 cd /home/ubuntu/centro-comando-agentes-ia/backend && npm run build

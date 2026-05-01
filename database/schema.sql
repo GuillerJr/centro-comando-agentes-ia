@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS ai_agents (
   skill_ids UUID[] NOT NULL DEFAULT '{}',
   priority INTEGER NOT NULL DEFAULT 50 CHECK (priority >= 1 AND priority <= 100),
   execution_limit INTEGER NOT NULL DEFAULT 5 CHECK (execution_limit >= 1 AND execution_limit <= 100),
+  communication_channel VARCHAR(255),
+  communication_channel_type VARCHAR(40),
   last_activity_at TIMESTAMPTZ,
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -271,6 +273,9 @@ CREATE TABLE IF NOT EXISTS ai_office_agent_assignments (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (agent_id)
 );
+
+ALTER TABLE ai_agents ADD COLUMN IF NOT EXISTS communication_channel VARCHAR(255);
+ALTER TABLE ai_agents ADD COLUMN IF NOT EXISTS communication_channel_type VARCHAR(40);
 
 CREATE INDEX IF NOT EXISTS idx_ai_agents_status ON ai_agents(status);
 CREATE INDEX IF NOT EXISTS idx_ai_skills_type_status ON ai_skills(skill_type, status);

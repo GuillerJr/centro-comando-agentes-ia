@@ -10,6 +10,8 @@ export const createAgentSchema = z.object({
   skillIds: z.array(z.string().uuid()).default([]),
   priority: z.number().int().min(1).max(100),
   executionLimit: z.number().int().min(1).max(100),
+  communicationChannel: z.string().max(255).nullable().optional(),
+  communicationChannelType: z.string().max(40).nullable().optional(),
   metadata: z.record(z.any()).optional().default({}),
 });
 

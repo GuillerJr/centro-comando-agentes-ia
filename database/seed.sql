@@ -7,13 +7,13 @@ VALUES
 ('10000000-0000-0000-0000-000000000005', 'fullstack-feature-builder', 'fullstack_feature_builder', 'Implementa funcionalidad end-to-end.', 'fullstack', 'active', 'Usar cuando alcance y arquitectura ya están claros.', 'No usar para reemplazar gobernanza o arquitectura.', ARRAY['frontend-engineer-expert', 'backend-engineer-expert'], ARRAY['feature completa', 'sin TODOs'])
 ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO ai_agents (id, name, description, agent_type, status, skill_ids, priority, execution_limit, last_activity_at, metadata)
+INSERT INTO ai_agents (id, name, description, agent_type, status, skill_ids, priority, execution_limit, communication_channel, communication_channel_type, last_activity_at, metadata)
 VALUES
-('20000000-0000-0000-0000-000000000001', 'LokiClaw', 'Arquitecto-orquestador principal del centro de comando.', 'orchestrator', 'active', ARRAY['10000000-0000-0000-0000-000000000001'::uuid, '10000000-0000-0000-0000-000000000002'::uuid, '10000000-0000-0000-0000-000000000003'::uuid], 95, 10, NOW(), '{"owner":"Guiller"}'::jsonb),
-('20000000-0000-0000-0000-000000000002', 'OpenClaw Runtime', 'Representación operativa del motor OpenClaw subyacente.', 'executor', 'active', ARRAY['10000000-0000-0000-0000-000000000005'::uuid], 90, 20, NOW(), '{"mode":"local-gateway"}'::jsonb),
-('20000000-0000-0000-0000-000000000003', 'Nora Review', 'Especialista en validación, auditoría y criterios de aprobación.', 'observer', 'active', ARRAY['10000000-0000-0000-0000-000000000001'::uuid, '10000000-0000-0000-0000-000000000004'::uuid], 82, 6, NOW(), '{"focus":"approval-flow"}'::jsonb),
-('20000000-0000-0000-0000-000000000004', 'Iris UI', 'Especialista en experiencia visual y consistencia de interfaz.', 'specialist', 'active', ARRAY['10000000-0000-0000-0000-000000000005'::uuid], 78, 5, NOW(), '{"focus":"frontend"}'::jsonb),
-('20000000-0000-0000-0000-000000000005', 'Atlas Data', 'Especialista en contratos backend, persistencia y consultas SQL.', 'specialist', 'active', ARRAY['10000000-0000-0000-0000-000000000004'::uuid, '10000000-0000-0000-0000-000000000005'::uuid], 84, 5, NOW(), '{"focus":"backend-database"}'::jsonb)
+('20000000-0000-0000-0000-000000000001', 'LokiClaw', 'Arquitecto-orquestador principal del centro de comando.', 'orchestrator', 'active', ARRAY['10000000-0000-0000-0000-000000000001'::uuid, '10000000-0000-0000-0000-000000000002'::uuid, '10000000-0000-0000-0000-000000000003'::uuid], 95, 10, 'telegram:guillerjr', 'telegram', NOW(), '{"owner":"Guiller"}'::jsonb),
+('20000000-0000-0000-0000-000000000002', 'OpenClaw Runtime', 'Representación operativa del motor OpenClaw subyacente.', 'executor', 'active', ARRAY['10000000-0000-0000-0000-000000000005'::uuid], 90, 20, 'interno:openclaw-runtime', 'interno', NOW(), '{"mode":"local-gateway"}'::jsonb),
+('20000000-0000-0000-0000-000000000003', 'Nora Review', 'Especialista en validación, auditoría y criterios de aprobación.', 'observer', 'active', ARRAY['10000000-0000-0000-0000-000000000001'::uuid, '10000000-0000-0000-0000-000000000004'::uuid], 82, 6, 'telegram:nora-review', 'telegram', NOW(), '{"focus":"approval-flow"}'::jsonb),
+('20000000-0000-0000-0000-000000000004', 'Iris UI', 'Especialista en experiencia visual y consistencia de interfaz.', 'specialist', 'active', ARRAY['10000000-0000-0000-0000-000000000005'::uuid], 78, 5, 'telegram:iris-ui', 'telegram', NOW(), '{"focus":"frontend"}'::jsonb),
+('20000000-0000-0000-0000-000000000005', 'Atlas Data', 'Especialista en contratos backend, persistencia y consultas SQL.', 'specialist', 'active', ARRAY['10000000-0000-0000-0000-000000000004'::uuid, '10000000-0000-0000-0000-000000000005'::uuid], 84, 5, 'telegram:atlas-data', 'telegram', NOW(), '{"focus":"backend-database"}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO ai_tasks (id, title, description, priority, task_type, lead_skill_id, support_skill_ids, status, result_summary, logs, created_by, started_at, completed_at, metadata)
