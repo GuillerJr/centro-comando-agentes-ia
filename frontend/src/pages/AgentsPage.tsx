@@ -190,7 +190,7 @@ export function AgentsPage() {
   const distribution = Array.from(new Set(agents.map((agent) => agent.agent_type)));
 
   return (
-    <PageShell title="Agentes" description="Registro operativo de agentes, prioridad, límites y configuración de comunicación independiente por agente.">
+    <PageShell title="Agentes" description="Registro operativo de agentes, prioridad, límites y configuración de comunicación por agente centrada en Telegram.">
       {!isModalOpen && actionError ? <ActionFeedback tone="warning" message={actionError} /> : null}
       {feedback ? <ActionFeedback tone="success" message={feedback} /> : null}
       <StatsGrid
@@ -249,20 +249,20 @@ export function AgentsPage() {
             <FormField label="Límite de ejecución" helper="Cantidad máxima de ejecuciones simultáneas."><Input type="number" min={1} max={100} value={form.executionLimit} onChange={(event) => setForm((current) => ({ ...current, executionLimit: Number(event.target.value) }))} /></FormField>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Proveedor de comunicación"><select className="panel-input" value={form.communicationProvider} onChange={(event) => setForm((current) => ({ ...current, communicationProvider: event.target.value, communicationChannelType: event.target.value }))}><option value="telegram">telegram</option><option value="discord">discord</option><option value="signal">signal</option><option value="whatsapp">whatsapp</option><option value="interno">interno</option><option value="otro">otro</option></select></FormField>
-            <FormField label="Destino del agente" helper="Chat, canal, user id, route key o destino interno independiente del canal principal."><Input placeholder="telegram:-100xxxx / interno:loki / discord:canal-agente" value={form.communicationTarget} onChange={(event) => setForm((current) => ({ ...current, communicationTarget: event.target.value, communicationChannel: event.target.value }))} /></FormField>
+            <FormField label="Proveedor de comunicación" helper="Por ahora el canal soportado operativamente en esta fase es Telegram."><Input value="telegram" disabled /></FormField>
+            <FormField label="Destino de Telegram" helper="Usa un chat id, usuario o referencia estable distinta de tu canal principal con OpenClaw."><Input placeholder="telegram:-100xxxxxxx o telegram:@agente_ui" value={form.communicationTarget} onChange={(event) => setForm((current) => ({ ...current, communicationTarget: event.target.value, communicationChannel: event.target.value, communicationProvider: 'telegram', communicationChannelType: 'telegram' }))} /></FormField>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Modo de comunicación"><select className="panel-input" value={form.communicationMode} onChange={(event) => setForm((current) => ({ ...current, communicationMode: event.target.value }))}><option value="direct">directo</option><option value="thread">hilo</option><option value="relay">relay</option><option value="internal">interno</option></select></FormField>
-            <FormField label="Política de respuesta"><select className="panel-input" value={form.communicationReplyPolicy} onChange={(event) => setForm((current) => ({ ...current, communicationReplyPolicy: event.target.value }))}><option value="same_channel">mismo canal</option><option value="mission_control">volver a Mission Control</option><option value="notify_only">solo notificar</option><option value="internal_only">solo interno</option></select></FormField>
+            <FormField label="Modo de comunicación"><select className="panel-input" value={form.communicationMode} onChange={(event) => setForm((current) => ({ ...current, communicationMode: event.target.value }))}><option value="direct">directo</option><option value="thread">hilo</option><option value="relay">relay</option></select></FormField>
+            <FormField label="Política de respuesta"><select className="panel-input" value={form.communicationReplyPolicy} onChange={(event) => setForm((current) => ({ ...current, communicationReplyPolicy: event.target.value }))}><option value="same_channel">mismo canal</option><option value="mission_control">volver a Mission Control</option><option value="notify_only">solo notificar</option></select></FormField>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="Referencia resumida del canal" helper="Alias breve o referencia compacta visible en tablas."><Input placeholder="telegram:agente-ui" value={form.communicationChannel} onChange={(event) => setForm((current) => ({ ...current, communicationChannel: event.target.value }))} /></FormField>
-            <FormField label="Tipo de canal heredado" helper="Compatibilidad con la referencia corta."><Input value={form.communicationChannelType} onChange={(event) => setForm((current) => ({ ...current, communicationChannelType: event.target.value }))} /></FormField>
+            <FormField label="Referencia resumida del canal" helper="Alias breve visible en tablas y listados."><Input placeholder="telegram:agente-ui" value={form.communicationChannel} onChange={(event) => setForm((current) => ({ ...current, communicationChannel: event.target.value, communicationChannelType: 'telegram', communicationProvider: 'telegram' }))} /></FormField>
+            <FormField label="Tipo de canal heredado" helper="Se mantiene en telegram para esta primera fase."><Input value="telegram" disabled /></FormField>
           </div>
           <label className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3 text-sm text-zinc-300">
             <input type="checkbox" checked={form.communicationIsDedicated} onChange={(event) => setForm((current) => ({ ...current, communicationIsDedicated: event.target.checked }))} />
-            Este agente usa un canal dedicado y distinto del canal principal de OpenClaw con Guiller.
+            Este agente usa un destino de Telegram dedicado y distinto del canal principal de OpenClaw con Guiller.
           </label>
           <div className="flex flex-wrap gap-3">
             <Button type="submit" disabled={isSubmitting}>{isSubmitting ? 'Guardando...' : editingAgentId ? 'Guardar cambios' : 'Crear agente'}</Button>
