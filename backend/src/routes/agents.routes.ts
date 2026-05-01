@@ -11,5 +11,7 @@ router.get('/:agentId', asyncHandler(agentsController.getById));
 router.post('/', asyncHandler(agentsController.create));
 router.put('/:agentId', asyncHandler(agentsController.update));
 router.patch('/:agentId/status', asyncHandler(agentsController.updateStatus));
+router.get('/:agentId/communication', asyncHandler(agentsController.getCommunication));
+router.post('/:agentId/communication/test', asyncHandler(agentsController.testCommunication));
 
 export default router;

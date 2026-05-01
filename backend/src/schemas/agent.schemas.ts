@@ -22,3 +22,4 @@ export const createAgentSchema = z.object({
 
 export const updateAgentSchema = createAgentSchema;
 export const updateAgentStatusSchema = z.object({ status: z.enum(['active', 'inactive', 'error', 'maintenance']) });
+export const testAgentCommunicationSchema = z.object({ message: z.string().min(1).max(1000), initiatedBy: z.string().min(2).max(120).default('Mission Control') });

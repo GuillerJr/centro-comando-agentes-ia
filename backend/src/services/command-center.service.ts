@@ -871,6 +871,53 @@ export const commandCenterService = {
     if (!updated) throw new AppError('Agent not found', 404);
     return updated;
   },
+  async getAgentCommunication(agentId: string) {
+    const agent = await commandCenterRepository.getAgentById(agentId);
+    if (!agent) throw new AppError('Agent not found', 404);
+    return {
+      agentId: agent.id,
+      agentName: agent.name,
+      provider: agent.communication_provider ?? 'telegram',
+      target: agent.communication_target ?? agent.communication_channel ?? null,
+      mode: agent.communication_mode ?? 'direct',
+      isDedicated: agent.communication_is_dedicated ?? false,
+      replyPolicy: agent.communication_reply_policy ?? 'same_channel',
+      channelLabel: agent.communication_channel ?? null,
+      channelType: agent.communication_channel_type ?? 'telegram',
+      ready: Boolean(agent.communication_target ?? agent.communication_channel),
+    };
+  },
+  async testAgentCommunication(agentId: string, payload: { message: string; initiatedBy: string }) {
+    const communication = await this.getAgentCommunication(agentId);
+    if (!communication.ready || !communication.target) {
+      throw new AppError('Agent communication target is not configured', 400);
+    }
+
+    const dispatch = {
+      provider: communication.provider,
+      target: communication.target,
+      mode: communication.mode,
+      replyPolicy: communication.replyPolicy,
+      isDedicated: communication.isDedicated,
+      message: payload.message,
+      initiatedBy: payload.initiatedBy,
+      status: communication.provider === 'telegram' ? 'telegram_ready_for_dispatch' : 'provider_not_supported_yet',
+      note: communication.provider === 'telegram'
+        ? 'La configuración Telegram quedó lista para integrarse con el router de mensajería.'
+        : 'El canal quedó modelado, pero el envío real todavía no está soportado para este proveedor.',
+    };
+
+    await commandCenterRepository.createAuditLog({
+      actor: payload.initiatedBy,
+      action: 'agent_communication_tested',
+      moduleName: 'agents',
+      payloadSummary: { agentId, provider: communication.provider, target: communication.target, mode: communication.mode },
+      resultStatus: 'success',
+      severity: 'info',
+    });
+
+    return dispatch;
+  },
   async listSkills() {
     return commandCenterRepository.getSkills();
   },
