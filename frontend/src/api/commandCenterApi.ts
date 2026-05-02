@@ -29,6 +29,8 @@ export const commandCenterApi = {
   createAgent: (payload: unknown) => apiRequest<Agent>('/agents', { method: 'POST', body: JSON.stringify(payload) }),
   updateAgent: (agentId: string, payload: unknown) => apiRequest<Agent>(`/agents/${agentId}`, { method: 'PUT', body: JSON.stringify(payload) }),
   updateAgentStatus: (agentId: string, status: string) => apiRequest<Agent>(`/agents/${agentId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  getAgentCommunication: (agentId: string) => apiRequest(`/agents/${agentId}/communication`),
+  testAgentCommunication: (agentId: string, payload: { message: string; initiatedBy: string }) => apiRequest(`/agents/${agentId}/communication/test`, { method: 'POST', body: JSON.stringify(payload) }),
 
   getSkills: () => apiRequest<Skill[]>('/skills'),
   getSkill: (skillId: string) => apiRequest<Skill>(`/skills/${skillId}`),
